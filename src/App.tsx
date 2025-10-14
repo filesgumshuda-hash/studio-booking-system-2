@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { Calendar, Users, Clipboard, DollarSign, Briefcase } from 'lucide-react';
+import { Calendar, Users, Clipboard, DollarSign, Briefcase, LayoutDashboard } from 'lucide-react';
 import { AppProvider } from './context/AppContext';
+import { DashboardPage } from './pages/DashboardPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { EventTrackingPage } from './pages/EventTrackingPage';
 import { StaffPage } from './pages/StaffPage';
@@ -12,6 +13,7 @@ function Navigation() {
   const location = useLocation();
 
   const navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/bookings', label: 'Bookings', icon: Briefcase },
     { path: '/tracking', label: 'Event Tracking', icon: Clipboard },
     { path: '/staff', label: 'Staff', icon: Users },
@@ -59,7 +61,8 @@ function App() {
         <div className="min-h-screen bg-gray-50">
           <Navigation />
           <Routes>
-            <Route path="/" element={<Navigate to="/bookings" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/tracking" element={<EventTrackingPage />} />
             <Route path="/staff" element={<StaffPage />} />
