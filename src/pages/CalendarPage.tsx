@@ -1,14 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EventDetailsModal } from '../components/calendar/EventDetailsModal';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, getTimeSlotBadge, formatDate, formatDateForStorage } from '../utils/helpers';
+import { Event } from '../context/AppContext';
 
 export function CalendarPage() {
+  const navigate = useNavigate();
   const { events, clients, bookings, staff, staffAssignments } = useAppData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterType, setFilterType] = useState<'all' | 'conflicts' | 'shortages'>('all');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { conflicts, shortages } = detectConflicts(events, staffAssignments);
 
@@ -103,6 +109,33 @@ export function CalendarPage() {
 
   const totalConflicts = conflicts.length;
   const totalShortages = shortages.length;
+
+  const handleEventClick = (event: Event) => {
+    setSelectedEvent(event);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+  };
+
+  const handleViewBooking = () => {
+    handleCloseModal();
+    navigate('/bookings');
+  };
+
+  const selectedEventData = selectedEvent
+    ? {
+        event: selectedEvent,
+        booking: bookings.find((b) => b.id === selectedEvent.booking_id) || null,
+        client:
+          clients.find(
+            (c) =>
+              c.id === bookings.find((b) => b.id === selectedEvent.booking_id)?.client_id
+          ) || null,
+      }
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -234,6 +267,7 @@ export function CalendarPage() {
                           key={event.id}
                           className="text-xs p-1.5 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors"
                           title={`${event.event_name} - ${event.venue}\n${event.clientName}`}
+                          onClick={() => handleEventClick(event)}
                         >
                           <div className="flex items-center gap-1">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${badgeColor}`}>
@@ -262,6 +296,17 @@ export function CalendarPage() {
           </div>
         </div>
       </div>
+
+      <EventDetailsModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        event={selectedEventData?.event || null}
+        client={selectedEventData?.client || null}
+        booking={selectedEventData?.booking || null}
+        staffAssignments={staffAssignments}
+        staff={staff}
+        onViewBooking={handleViewBooking}
+      />
     </div>
   );
 }
