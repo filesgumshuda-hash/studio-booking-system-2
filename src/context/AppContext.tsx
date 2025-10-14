@@ -81,46 +81,23 @@ export interface Workflow {
   updated_at: string;
 }
 
-export interface PaymentTransaction {
-  id: string;
-  payment_id: string;
-  amount: number;
-  payment_date: string;
-  payment_mode: 'cash' | 'bank_transfer' | 'upi' | 'cheque' | 'others';
-  transaction_ref?: string;
-  payment_proof?: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Payment {
   id: string;
-  event_id: string | null;
+  event_id: string;
   staff_id: string;
   role: string;
   agreed_amount: number;
   amount_paid: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue';
-  is_non_event_payment: boolean;
+  payment_date?: string;
+  payment_mode?: string;
+  transaction_ref?: string;
+  payment_proof?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
   staff?: Staff;
   event?: Event;
-  transactions?: PaymentTransaction[];
-}
-
-export interface StaffPaymentSummary {
-  staff_id: string;
-  staff_name: string;
-  staff: Staff;
-  total_agreed: number;
-  total_paid: number;
-  total_balance: number;
-  overall_status: 'pending' | 'partial' | 'paid' | 'overdue';
-  payment_records: Payment[];
-  event_count: number;
 }
 
 interface AppState {
@@ -131,7 +108,6 @@ interface AppState {
   staffAssignments: StaffAssignment[];
   workflows: Workflow[];
   payments: Payment[];
-  paymentTransactions: PaymentTransaction[];
   loading: boolean;
   error: string | null;
 }
@@ -146,7 +122,6 @@ type AppAction =
   | { type: 'SET_STAFF_ASSIGNMENTS'; payload: StaffAssignment[] }
   | { type: 'SET_WORKFLOWS'; payload: Workflow[] }
   | { type: 'SET_PAYMENTS'; payload: Payment[] }
-  | { type: 'SET_PAYMENT_TRANSACTIONS'; payload: PaymentTransaction[] }
   | { type: 'ADD_CLIENT'; payload: Client }
   | { type: 'UPDATE_CLIENT'; payload: Client }
   | { type: 'DELETE_CLIENT'; payload: string }
@@ -174,7 +149,6 @@ const initialState: AppState = {
   staffAssignments: [],
   workflows: [],
   payments: [],
-  paymentTransactions: [],
   loading: true,
   error: null,
 };
@@ -199,8 +173,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, workflows: action.payload };
     case 'SET_PAYMENTS':
       return { ...state, payments: action.payload };
-    case 'SET_PAYMENT_TRANSACTIONS':
-      return { ...state, paymentTransactions: action.payload };
     case 'ADD_CLIENT':
       return { ...state, clients: [...state.clients, action.payload] };
     case 'UPDATE_CLIENT':
@@ -287,7 +259,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         assignmentsRes,
         workflowsRes,
         paymentsRes,
-        transactionsRes,
       ] = await Promise.all([
         supabase.from('clients').select('*').order('created_at', { ascending: false }),
         supabase.from('bookings').select('*, client:clients(*)').order('created_at', { ascending: false }),
@@ -296,7 +267,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from('staff_assignments').select('*, staff:staff(*), event:events(*)'),
         supabase.from('workflows').select('*'),
         supabase.from('payments').select('*, staff:staff(*), event:events(*)'),
-        supabase.from('payment_transactions').select('*').order('payment_date', { ascending: false }),
       ]);
 
       if (clientsRes.error) throw clientsRes.error;
@@ -306,7 +276,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (assignmentsRes.error) throw assignmentsRes.error;
       if (workflowsRes.error) throw workflowsRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
-      if (transactionsRes.error) throw transactionsRes.error;
 
       dispatch({ type: 'SET_CLIENTS', payload: clientsRes.data });
       dispatch({ type: 'SET_BOOKINGS', payload: bookingsRes.data });
@@ -315,7 +284,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_STAFF_ASSIGNMENTS', payload: assignmentsRes.data });
       dispatch({ type: 'SET_WORKFLOWS', payload: workflowsRes.data });
       dispatch({ type: 'SET_PAYMENTS', payload: paymentsRes.data });
-      dispatch({ type: 'SET_PAYMENT_TRANSACTIONS', payload: transactionsRes.data });
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     } finally {
