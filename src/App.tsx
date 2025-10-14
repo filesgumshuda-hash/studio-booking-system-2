@@ -7,7 +7,7 @@ import { BookingsPage } from './pages/BookingsPage';
 import { EventTrackingPage } from './pages/EventTrackingPage';
 import { StaffPage } from './pages/StaffPage';
 import { CalendarPage } from './pages/CalendarPage';
-import { PaymentsPage } from './pages/PaymentsPage';
+import { NewPaymentsPage } from './pages/NewPaymentsPage';
 
 function Navigation() {
   const location = useLocation();
@@ -67,7 +67,7 @@ function App() {
             <Route path="/tracking" element={<EventTrackingPage />} />
             <Route path="/staff" element={<StaffPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/payments" element={<NewPaymentsPage />} />
           </Routes>
         </div>
       </AppProvider>

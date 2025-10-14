@@ -1,11 +1,11 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button } from './Button';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message: string | ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info';
@@ -40,7 +40,7 @@ export function ConfirmDialog({
           </div>
           <div className="ml-4 flex-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-            <p className="text-gray-600 mb-6">{message}</p>
+            <div className="text-gray-600 mb-6">{message}</div>
             <div className="flex gap-3 justify-end">
               <Button variant="secondary" onClick={onCancel}>
                 {cancelText}
