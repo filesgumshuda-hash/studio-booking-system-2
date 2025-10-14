@@ -5,6 +5,8 @@ export interface ClientSummary {
   clientName: string;
   totalOwed: number;
   totalPaid: number;
+  totalAgreed: number;
+  totalReceived: number;
   totalDue: number;
 }
 
@@ -28,15 +30,27 @@ export function getTotalPaid(clientId: string, payments: ClientPaymentRecord[]):
     .reduce((sum, p) => sum + Number(p.amount), 0);
 }
 
+export function getTotalReceived(clientId: string, payments: ClientPaymentRecord[]): number {
+  return payments
+    .filter((p) => p.client_id === clientId && p.payment_status === 'received')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+}
+
+export function getTotalAgreed(clientId: string, payments: ClientPaymentRecord[]): number {
+  return payments
+    .filter((p) => p.client_id === clientId && p.payment_status === 'agreed')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+}
+
 export function getDue(clientId: string, bookings: Booking[], payments: ClientPaymentRecord[]): number {
-  return getTotalOwed(clientId, bookings) - getTotalPaid(clientId, payments);
+  return getTotalOwed(clientId, bookings) - getTotalReceived(clientId, payments);
 }
 
 export function getBookingBalance(bookingId: string, booking: Booking, payments: ClientPaymentRecord[]): number {
-  const paid = payments
-    .filter((p) => p.booking_id === bookingId)
+  const received = payments
+    .filter((p) => p.booking_id === bookingId && p.payment_status === 'received')
     .reduce((sum, p) => sum + Number(p.amount), 0);
-  return Number(booking.package_amount || 0) - paid;
+  return Number(booking.package_amount || 0) - received;
 }
 
 export function calculateClientSummary(
@@ -47,13 +61,17 @@ export function calculateClientSummary(
 ): ClientSummary {
   const totalOwed = getTotalOwed(clientId, bookings);
   const totalPaid = getTotalPaid(clientId, payments);
-  const totalDue = totalOwed - totalPaid;
+  const totalReceived = getTotalReceived(clientId, payments);
+  const totalAgreed = getTotalAgreed(clientId, payments);
+  const totalDue = totalOwed - totalReceived;
 
   return {
     clientId,
     clientName,
     totalOwed,
     totalPaid,
+    totalReceived,
+    totalAgreed,
     totalDue,
   };
 }

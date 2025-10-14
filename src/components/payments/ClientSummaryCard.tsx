@@ -22,11 +22,20 @@ export function ClientSummaryCard({ summary, onClick }: ClientSummaryCardProps) 
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Paid:</span>
+          <span className="text-sm text-gray-600">Received:</span>
           <span className="text-base font-semibold text-green-600">
-            {formatCurrency(summary.totalPaid)}
+            {formatCurrency(summary.totalReceived)}
           </span>
         </div>
+
+        {summary.totalAgreed > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Agreed:</span>
+            <span className="text-base font-semibold text-amber-600">
+              {formatCurrency(summary.totalAgreed)}
+            </span>
+          </div>
+        )}
 
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-600">Due:</span>

@@ -79,6 +79,7 @@ export function ClientPaymentsPage() {
           amount: formData.amount,
           payment_date: formData.paymentDate,
           payment_method: formData.paymentMethod,
+          payment_status: formData.paymentStatus,
           transaction_ref: formData.transactionRef || null,
           remarks: formData.remarks || null,
         })
@@ -228,6 +229,18 @@ export function ClientPaymentsPage() {
                 <div>
                   <span className="font-medium">Method:</span>{' '}
                   {deleteConfirmation.payment.payment_method.replace('_', ' ')}
+                </div>
+                <div>
+                  <span className="font-medium">Status:</span>{' '}
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                      deleteConfirmation.payment.payment_status === 'received'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {deleteConfirmation.payment.payment_status === 'received' ? 'Received' : 'Agreed'}
+                  </span>
                 </div>
                 <div>
                   <span className="font-medium">Booking:</span>{' '}

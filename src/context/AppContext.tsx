@@ -122,6 +122,7 @@ export interface ClientPaymentRecord {
   amount: number;
   payment_date: string;
   payment_method: string;
+  payment_status: 'agreed' | 'received';
   transaction_ref?: string;
   remarks?: string;
   created_at: string;

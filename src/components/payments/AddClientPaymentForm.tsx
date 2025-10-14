@@ -20,6 +20,7 @@ export interface ClientPaymentFormData {
   amount: number;
   paymentDate: string;
   paymentMethod: string;
+  paymentStatus: 'agreed' | 'received';
   transactionRef: string;
   remarks: string;
 }
@@ -39,6 +40,7 @@ export function AddClientPaymentForm({
     amount: 0,
     paymentDate: new Date().toISOString().split('T')[0],
     paymentMethod: 'cash',
+    paymentStatus: 'received',
     transactionRef: '',
     remarks: '',
   });
@@ -99,6 +101,10 @@ export function AddClientPaymentForm({
 
     if (!formData.paymentMethod) {
       newErrors.paymentMethod = 'Payment method is required';
+    }
+
+    if (!formData.paymentStatus) {
+      newErrors.paymentStatus = 'Payment status is required';
     }
 
     setErrors(newErrors);
@@ -222,6 +228,32 @@ export function AddClientPaymentForm({
           }`}
         />
         {errors.paymentDate && <p className="mt-1 text-sm text-red-600">{errors.paymentDate}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700 mb-2">
+          Payment Status <span className="text-red-600">*</span>
+        </label>
+        <select
+          id="paymentStatus"
+          value={formData.paymentStatus}
+          onChange={(e) => {
+            setFormData({ ...formData, paymentStatus: e.target.value as 'agreed' | 'received' });
+            setErrors({ ...errors, paymentStatus: '' });
+          }}
+          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+            errors.paymentStatus ? 'border-red-500' : 'border-gray-300'
+          }`}
+        >
+          <option value="received">Payment Received</option>
+          <option value="agreed">Payment Agreed (To Be Received)</option>
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          {formData.paymentStatus === 'received'
+            ? 'Money has been received from the client'
+            : 'Amount agreed but payment is pending'}
+        </p>
+        {errors.paymentStatus && <p className="mt-1 text-sm text-red-600">{errors.paymentStatus}</p>}
       </div>
 
       <div>
