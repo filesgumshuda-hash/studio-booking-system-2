@@ -26,15 +26,20 @@ interface BookingFormProps {
 }
 
 export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) {
-  const { staff, refreshData } = useAppData();
+  const { staff, clients, refreshData } = useAppData();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [clientSelectionMode, setClientSelectionMode] = useState<'existing' | 'new'>('new');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
 
   const [clientName, setClientName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [email, setEmail] = useState('');
   const [alternateContact, setAlternateContact] = useState('');
   const [clientNotes, setClientNotes] = useState('');
+  const [bookingReference, setBookingReference] = useState('');
 
   const [originalEventIds, setOriginalEventIds] = useState<string[]>([]);
 
@@ -134,17 +139,43 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     setEvents(newEvents);
   };
 
+  const filteredClients = clients.filter((c) => {
+    const query = clientSearchQuery.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(query) ||
+      c.contact_number.includes(query)
+    );
+  });
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
+
+  const generateBookingReference = async () => {
+    const year = new Date().getFullYear();
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const count = data ? data.length + 1 : 1;
+    return `BK-${year}-${count.toString().padStart(3, '0')}`;
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!clientName.trim()) newErrors.clientName = 'Client name is required';
-    else if (clientName.trim().length < 2) newErrors.clientName = 'Client name must be at least 2 characters';
+    if (clientSelectionMode === 'existing') {
+      if (!selectedClientId) newErrors.selectedClient = 'Please select a client';
+    } else {
+      if (!clientName.trim()) newErrors.clientName = 'Client name is required';
+      else if (clientName.trim().length < 2) newErrors.clientName = 'Client name must be at least 2 characters';
 
-    if (!contactNumber.trim()) newErrors.contactNumber = 'Contact number is required';
-    else if (!validatePhoneNumber(contactNumber)) newErrors.contactNumber = 'Invalid phone number (must be 10 digits)';
+      if (!contactNumber.trim()) newErrors.contactNumber = 'Contact number is required';
+      else if (!validatePhoneNumber(contactNumber)) newErrors.contactNumber = 'Invalid phone number (must be 10 digits)';
 
-    if (email && !validateEmail(email)) newErrors.email = 'Invalid email format';
-    if (alternateContact && !validatePhoneNumber(alternateContact)) newErrors.alternateContact = 'Invalid phone number';
+      if (email && !validateEmail(email)) newErrors.email = 'Invalid email format';
+      if (alternateContact && !validatePhoneNumber(alternateContact)) newErrors.alternateContact = 'Invalid phone number';
+    }
 
     events.forEach((event, idx) => {
       if (!event.event_name.trim()) newErrors[`event_${idx}_name`] = 'Event name is required';
@@ -171,56 +202,64 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
       let clientId = booking?.client_id;
 
       if (!booking) {
-        const { data: existingClients } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('contact_number', contactNumber);
+        if (clientSelectionMode === 'existing') {
+          clientId = selectedClientId;
+        } else {
+          const { data: existingClients } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('contact_number', contactNumber);
 
-        if (existingClients && existingClients.length > 0) {
-          const confirmDuplicate = window.confirm(
-            'A client with this phone number already exists. Do you want to create a duplicate?'
-          );
-          if (!confirmDuplicate) {
-            setLoading(false);
-            return;
+          if (existingClients && existingClients.length > 0) {
+            const confirmDuplicate = window.confirm(
+              'A client with this phone number already exists. Do you want to create a duplicate?'
+            );
+            if (!confirmDuplicate) {
+              setLoading(false);
+              return;
+            }
           }
+
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              name: clientName,
+              contact_number: contactNumber,
+              email: email || null,
+              alternate_contact: alternateContact || null,
+              notes: clientNotes || null,
+            })
+            .select()
+            .single();
+
+          if (clientError) throw clientError;
+          clientId = newClient.id;
         }
-
-        const { data: newClient, error: clientError } = await supabase
-          .from('clients')
-          .insert({
-            name: clientName,
-            contact_number: contactNumber,
-            email: email || null,
-            alternate_contact: alternateContact || null,
-            notes: clientNotes || null,
-          })
-          .select()
-          .single();
-
-        if (clientError) throw clientError;
-        clientId = newClient.id;
       } else {
-        await supabase
-          .from('clients')
-          .update({
-            name: clientName,
-            contact_number: contactNumber,
-            email: email || null,
-            alternate_contact: alternateContact || null,
-            notes: clientNotes || null,
-          })
-          .eq('id', booking.client_id);
+        if (clientSelectionMode === 'new') {
+          await supabase
+            .from('clients')
+            .update({
+              name: clientName,
+              contact_number: contactNumber,
+              email: email || null,
+              alternate_contact: alternateContact || null,
+              notes: clientNotes || null,
+            })
+            .eq('id', booking.client_id);
+        }
       }
 
       let bookingId = booking?.id;
 
       if (!booking) {
+        const finalBookingReference = bookingReference.trim() || await generateBookingReference();
+
         const { data: newBooking, error: bookingError } = await supabase
           .from('bookings')
           .insert({
             client_id: clientId,
-            notes: '',
+            notes: clientNotes || null,
           })
           .select()
           .single();
@@ -361,8 +400,126 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-lg font-semibold mb-4">Client Information</h3>
-        <div className="grid grid-cols-2 gap-4">
+
+        {!booking && (
+          <div className="mb-4">
+            <div className="flex gap-6">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="clientMode"
+                  value="existing"
+                  checked={clientSelectionMode === 'existing'}
+                  onChange={(e) => {
+                    setClientSelectionMode('existing');
+                    setErrors({});
+                  }}
+                  className="w-4 h-4 text-gray-900 focus:ring-gray-900 mr-2"
+                />
+                <span className={`text-sm ${clientSelectionMode === 'existing' ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                  Select Existing Client
+                </span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="clientMode"
+                  value="new"
+                  checked={clientSelectionMode === 'new'}
+                  onChange={(e) => {
+                    setClientSelectionMode('new');
+                    setSelectedClientId('');
+                    setClientSearchQuery('');
+                    setErrors({});
+                  }}
+                  className="w-4 h-4 text-gray-900 focus:ring-gray-900 mr-2"
+                />
+                <span className={`text-sm ${clientSelectionMode === 'new' ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                  Create New Client
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-gray-300 pt-4 mt-2" />
+
+        {clientSelectionMode === 'existing' && !booking && (
           <div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Client <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={clientSearchQuery}
+                  onChange={(e) => setClientSearchQuery(e.target.value)}
+                  placeholder="Search by name or contact number..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+              {clientSearchQuery && (
+                <div className="mt-2 border border-gray-300 rounded-lg max-h-60 overflow-y-auto bg-white">
+                  {filteredClients.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">No clients found</div>
+                  ) : (
+                    filteredClients.map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setClientSearchQuery(`${client.name} - ${client.contact_number}`);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-200 last:border-b-0"
+                      >
+                        <div className="text-sm font-medium text-gray-900">{client.name}</div>
+                        <div className="text-xs text-gray-600">{client.contact_number}</div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+              {errors.selectedClient && (
+                <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.selectedClient}
+                </p>
+              )}
+            </div>
+
+            {selectedClient && (
+              <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Selected Client:</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <div><span className="font-medium">Name:</span> {selectedClient.name}</div>
+                  <div><span className="font-medium">Contact:</span> {selectedClient.contact_number}</div>
+                  {selectedClient.email && (
+                    <div><span className="font-medium">Email:</span> {selectedClient.email}</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notes (Optional - Booking Specific)
+              </label>
+              <textarea
+                value={clientNotes}
+                onChange={(e) => setClientNotes(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                placeholder="Any specific notes about this booking..."
+              />
+            </div>
+          </div>
+        )}
+
+        {(clientSelectionMode === 'new' || booking) && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Client Name <span className="text-red-600">*</span>
             </label>
@@ -446,7 +603,25 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
             placeholder="Any specific notes about the client..."
           />
         </div>
+          </>
+        )}
       </div>
+
+      {!booking && (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Booking Reference (Optional)
+          </label>
+          <input
+            type="text"
+            value={bookingReference}
+            onChange={(e) => setBookingReference(e.target.value)}
+            placeholder="Auto-generated if empty (e.g., BK-2025-001)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+          />
+          <p className="text-xs text-gray-500 mt-1">Leave empty to auto-generate</p>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-4">
