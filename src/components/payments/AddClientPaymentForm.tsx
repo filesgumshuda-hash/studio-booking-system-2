@@ -19,7 +19,7 @@ export interface ClientPaymentFormData {
   bookingId: string;
   amount: number;
   paymentDate: string;
-  paymentMethod: string;
+  paymentMethod: string | null;
   paymentStatus: 'agreed' | 'received';
   transactionRef: string;
   remarks: string;
@@ -77,7 +77,7 @@ export function AddClientPaymentForm({
       ...formData,
       paymentStatus: type,
       paymentDate: new Date().toISOString().split('T')[0],
-      paymentMethod: type === 'received' ? 'cash' : '',
+      paymentMethod: type === 'received' ? 'cash' : null,
       transactionRef: '',
     });
     setErrors({});

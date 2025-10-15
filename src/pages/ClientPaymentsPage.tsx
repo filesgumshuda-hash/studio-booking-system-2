@@ -78,10 +78,10 @@ export function ClientPaymentsPage() {
           booking_id: formData.bookingId,
           amount: formData.amount,
           payment_date: formData.paymentDate,
-          payment_method: formData.paymentMethod || null,
+          payment_method: formData.paymentMethod ? formData.paymentMethod : null,
           payment_status: formData.paymentStatus,
-          transaction_ref: formData.transactionRef || null,
-          remarks: formData.remarks || null,
+          transaction_ref: formData.transactionRef ? formData.transactionRef : null,
+          remarks: formData.remarks ? formData.remarks : null,
         })
         .select('*, client:clients(*), booking:bookings(*)')
         .single();
