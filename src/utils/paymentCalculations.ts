@@ -61,6 +61,9 @@ export function getTop10Staff(
   payments: StaffPaymentRecord[]
 ): StaffSummary[] {
   const staffWithPayments = staff
+    .filter(s => {
+      return payments.some(p => p.staff_id === s.id);
+    })
     .map((s) => calculateStaffSummary(s.id, s.name, payments))
     .filter((summary) => summary.totalAgreed > 0 || summary.totalPaid > 0);
 
