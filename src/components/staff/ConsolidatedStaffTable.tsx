@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Edit, Key, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, ChevronRight, Edit, Key, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { useToast } from '../common/Toast';
+import { CreateLoginModal } from './CreateLoginModal';
 import { supabase } from '../../lib/supabase';
 import { Staff, StaffAssignment } from '../../context/AppContext';
 
@@ -40,6 +41,8 @@ export function ConsolidatedStaffTable({
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateLogin, setShowCreateLogin] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const { showToast, ToastComponent } = useToast();
 
   useEffect(() => {
@@ -182,6 +185,18 @@ export function ConsolidatedStaffTable({
     } catch (error: any) {
       showToast(`Failed to change role: ${error.message}`, 'error');
     }
+  };
+
+  const handleCreateLogin = (staffMember: Staff) => {
+    setSelectedStaff(staffMember);
+    setShowCreateLogin(true);
+  };
+
+  const handleLoginCreated = async () => {
+    await fetchUsers();
+    setShowCreateLogin(false);
+    setSelectedStaff(null);
+    showToast('Login account created successfully', 'success');
   };
 
   const handleResetPassword = async (staffMember: ConsolidatedStaffMember) => {
@@ -343,13 +358,21 @@ export function ConsolidatedStaffTable({
                         >
                           <Edit size={16} />
                         </button>
-                        {staffMember.hasLogin && (
+                        {staffMember.hasLogin ? (
                           <button
                             onClick={() => handleResetPassword(staffMember)}
                             className="text-amber-600 hover:text-amber-800 transition-colors"
                             title="Reset Password"
                           >
                             <Key size={16} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleCreateLogin(staffMember)}
+                            className="text-green-600 hover:text-green-800 transition-colors"
+                            title="Create Login"
+                          >
+                            <UserPlus size={16} />
                           </button>
                         )}
                       </div>
@@ -447,7 +470,15 @@ export function ConsolidatedStaffTable({
                                   <option value="admin">Admin</option>
                                 </select>
                                 {!staffMember.hasLogin && (
-                                  <span className="text-sm text-gray-500">Create user account to enable login</span>
+                                  <>
+                                    <button
+                                      onClick={() => handleCreateLogin(staffMember)}
+                                      className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                                    >
+                                      <UserPlus size={16} />
+                                      Create Login
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -464,6 +495,18 @@ export function ConsolidatedStaffTable({
       </div>
 
       {ToastComponent}
+
+      {selectedStaff && (
+        <CreateLoginModal
+          staff={selectedStaff}
+          isOpen={showCreateLogin}
+          onClose={() => {
+            setShowCreateLogin(false);
+            setSelectedStaff(null);
+          }}
+          onSuccess={handleLoginCreated}
+        />
+      )}
     </div>
   );
 }
