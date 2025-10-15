@@ -77,7 +77,7 @@ export function ClientPaymentsPage() {
           client_id: formData.clientId,
           booking_id: formData.bookingId,
           amount: formData.amount,
-          payment_date: formData.paymentDate || null,
+          payment_date: formData.paymentDate,
           payment_method: formData.paymentMethod || null,
           payment_status: formData.paymentStatus,
           transaction_ref: formData.transactionRef || null,

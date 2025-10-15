@@ -76,7 +76,7 @@ export function AddClientPaymentForm({
     setFormData({
       ...formData,
       paymentStatus: type,
-      paymentDate: type === 'received' ? new Date().toISOString().split('T')[0] : '',
+      paymentDate: new Date().toISOString().split('T')[0],
       paymentMethod: type === 'received' ? 'cash' : '',
       transactionRef: '',
     });
@@ -98,26 +98,24 @@ export function AddClientPaymentForm({
       newErrors.amount = 'Amount must be greater than 0';
     }
 
-    if (paymentType === 'received') {
-      if (!formData.paymentDate) {
-        newErrors.paymentDate = 'Payment date is required';
-      } else {
-        const selectedDate = new Date(formData.paymentDate);
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    if (!formData.paymentDate) {
+      newErrors.paymentDate = 'Payment date is required';
+    } else {
+      const selectedDate = new Date(formData.paymentDate);
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
-        if (selectedDate > oneYearFromNow) {
-          newErrors.paymentDate = 'Date cannot be more than 1 year ahead';
-        }
+      if (selectedDate > oneYearFromNow) {
+        newErrors.paymentDate = 'Date cannot be more than 1 year ahead';
       }
+    }
 
-      if (!formData.paymentMethod) {
-        newErrors.paymentMethod = 'Payment method is required';
-      }
+    if (paymentType === 'received' && !formData.paymentMethod) {
+      newErrors.paymentMethod = 'Payment method is required';
+    }
 
-      if (formData.amount > bookingBalance && bookingBalance > 0) {
-        newErrors.amount = `Amount exceeds remaining balance (${formatCurrency(bookingBalance)})`;
-      }
+    if (paymentType === 'received' && formData.amount > bookingBalance && bookingBalance > 0) {
+      newErrors.amount = `Amount exceeds remaining balance (${formatCurrency(bookingBalance)})`;
     }
 
     setErrors(newErrors);
