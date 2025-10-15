@@ -1,4 +1,4 @@
-import { ClientSummary, formatCurrency } from '../../utils/clientPaymentCalculations';
+import { ClientSummary, formatCurrency, getOutstandingColorClass } from '../../utils/clientPaymentCalculations';
 
 interface ClientSummaryCardProps {
   summary: ClientSummary;
@@ -15,9 +15,9 @@ export function ClientSummaryCard({ summary, onClick }: ClientSummaryCardProps) 
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Total:</span>
+          <span className="text-sm text-gray-600">Package Amount:</span>
           <span className="text-base font-semibold text-gray-600">
-            {formatCurrency(summary.totalOwed)}
+            {formatCurrency(summary.packageAmount)}
           </span>
         </div>
 
@@ -28,23 +28,12 @@ export function ClientSummaryCard({ summary, onClick }: ClientSummaryCardProps) 
           </span>
         </div>
 
-        {summary.totalAgreed > 0 && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">Agreed:</span>
-            <span className="text-base font-semibold text-amber-600">
-              {formatCurrency(summary.totalAgreed)}
-            </span>
-          </div>
-        )}
-
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Due:</span>
+          <span className="text-sm text-gray-600">Outstanding:</span>
           <span
-            className={`text-base font-semibold ${
-              summary.totalDue > 0 ? 'text-red-600' : 'text-green-600'
-            }`}
+            className={`text-base font-semibold ${getOutstandingColorClass(summary.outstanding)}`}
           >
-            {formatCurrency(summary.totalDue)}
+            {formatCurrency(summary.outstanding)}
           </span>
         </div>
       </div>

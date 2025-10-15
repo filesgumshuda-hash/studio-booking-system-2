@@ -3,19 +3,19 @@ import { ClientPaymentRecord, Client, Booking, Event } from '../context/AppConte
 export interface ClientSummary {
   clientId: string;
   clientName: string;
-  totalOwed: number;
-  totalPaid: number;
-  totalAgreed: number;
+  packageAmount: number;
   totalReceived: number;
-  totalDue: number;
+  outstanding: number;
 }
 
 export interface BookingAmount {
   bookingId: string;
   bookingName: string;
   eventCount: number;
-  bookingDate: string;
-  amount: number;
+  firstEventDate: string;
+  packageAmount: number;
+  received: number;
+  due: number;
 }
 
 export function getTotalOwed(clientId: string, bookings: Booking[]): number {
@@ -59,20 +59,24 @@ export function calculateClientSummary(
   bookings: Booking[],
   payments: ClientPaymentRecord[]
 ): ClientSummary {
-  const totalOwed = getTotalOwed(clientId, bookings);
-  const totalPaid = getTotalPaid(clientId, payments);
-  const totalReceived = getTotalReceived(clientId, payments);
-  const totalAgreed = getTotalAgreed(clientId, payments);
-  const totalDue = totalOwed - totalReceived;
+  const clientBookings = bookings.filter(b => b.client_id === clientId);
+
+  const packageAmount = clientBookings.reduce((sum, booking) => {
+    return sum + Number(booking.package_amount || 0);
+  }, 0);
+
+  const totalReceived = payments
+    .filter(p => p.client_id === clientId && p.payment_status === 'received')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+
+  const outstanding = packageAmount - totalReceived;
 
   return {
     clientId,
     clientName,
-    totalOwed,
-    totalPaid,
+    packageAmount,
     totalReceived,
-    totalAgreed,
-    totalDue,
+    outstanding,
   };
 }
 
@@ -82,16 +86,19 @@ export function getTop10Clients(
   payments: ClientPaymentRecord[]
 ): ClientSummary[] {
   const clientsWithPayments = clients
+    .filter(c => {
+      return bookings.some(b => b.client_id === c.id);
+    })
     .map((c) => calculateClientSummary(c.id, c.name, bookings, payments))
-    .filter((summary) => summary.totalOwed > 0 || summary.totalPaid > 0);
+    .filter((summary) => summary.packageAmount > 0 || summary.totalReceived > 0);
 
   return clientsWithPayments
     .sort((a, b) => {
-      if (b.totalDue !== a.totalDue) {
-        return b.totalDue - a.totalDue;
+      if (b.outstanding !== a.outstanding) {
+        return b.outstanding - a.outstanding;
       }
-      if (b.totalOwed !== a.totalOwed) {
-        return b.totalOwed - a.totalOwed;
+      if (b.packageAmount !== a.packageAmount) {
+        return b.packageAmount - a.packageAmount;
       }
       return a.clientName.localeCompare(b.clientName);
     })
@@ -110,23 +117,34 @@ export function getClientBookings(
     const bookingEvents = events.filter((e) => e.booking_id === booking.id);
     const eventCount = bookingEvents.length;
 
-    const primaryEvent = bookingEvents.sort((a, b) =>
+    const sortedEvents = bookingEvents.sort((a, b) =>
       new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
-    )[0];
+    );
+    const firstEvent = sortedEvents[0];
+
+    const packageAmount = Number(booking.package_amount || 0);
+
+    const received = payments
+      .filter((p) => p.booking_id === booking.id && p.payment_status === 'received')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const due = packageAmount - received;
 
     return {
       bookingId: booking.id,
       bookingName: booking.booking_name || `Booking ${booking.id.slice(0, 8)}`,
       eventCount,
-      bookingDate: primaryEvent?.event_date || booking.created_at,
-      amount: Number(booking.package_amount || 0),
+      firstEventDate: firstEvent?.event_date || booking.created_at,
+      packageAmount,
+      received,
+      due,
     };
   });
 
   return bookingAmounts.sort((a, b) => {
-    const dateA = new Date(a.bookingDate);
-    const dateB = new Date(b.bookingDate);
-    return dateB.getTime() - dateA.getTime();
+    const dateA = new Date(a.firstEventDate);
+    const dateB = new Date(b.firstEventDate);
+    return dateA.getTime() - dateB.getTime();
   });
 }
 
@@ -164,4 +182,14 @@ export function formatDate(dateString: string): string {
   const month = date.toLocaleString('en-US', { month: 'short' });
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
+}
+
+export function getOutstandingColorClass(outstanding: number): string {
+  if (outstanding <= 0) {
+    return 'text-green-600';
+  } else if (outstanding > 50000) {
+    return 'text-red-600';
+  } else {
+    return 'text-orange-600';
+  }
 }

@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import { Client, ClientPaymentRecord } from '../../context/AppContext';
-import { ClientSummary, BookingAmount, formatCurrency, formatDate } from '../../utils/clientPaymentCalculations';
+import { ClientSummary, BookingAmount, formatCurrency, formatDate, getOutstandingColorClass } from '../../utils/clientPaymentCalculations';
 import { getBookingDisplayName } from '../../utils/displayHelpers';
 import { Button } from '../common/Button';
 
@@ -45,34 +45,19 @@ export function ClientDetailSection({
 
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-sm font-medium text-gray-600 mb-3">Summary:</h3>
-        <div className="flex items-center gap-6 flex-wrap">
+        <div className="space-y-2">
           <div>
-            <span className="text-gray-600">Total Amount: </span>
-            <span className="text-lg font-semibold text-gray-600">{formatCurrency(summary.totalOwed)}</span>
+            <span className="text-gray-600">Package Amount: </span>
+            <span className="text-lg font-semibold text-gray-600">{formatCurrency(summary.packageAmount)}</span>
           </div>
-          <div className="h-6 w-px bg-gray-300"></div>
           <div>
             <span className="text-gray-600">Received: </span>
             <span className="text-lg font-semibold text-green-600">{formatCurrency(summary.totalReceived)}</span>
           </div>
-          {summary.totalAgreed > 0 && (
-            <>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <div>
-                <span className="text-gray-600">Agreed (Pending): </span>
-                <span className="text-lg font-semibold text-amber-600">{formatCurrency(summary.totalAgreed)}</span>
-              </div>
-            </>
-          )}
-          <div className="h-6 w-px bg-gray-300"></div>
           <div>
-            <span className="text-gray-600">Due: </span>
-            <span
-              className={`text-lg font-semibold ${
-                summary.totalDue > 0 ? 'text-red-600' : 'text-green-600'
-              }`}
-            >
-              {formatCurrency(summary.totalDue)}
+            <span className="text-gray-600">Outstanding: </span>
+            <span className={`text-lg font-semibold ${getOutstandingColorClass(summary.outstanding)}`}>
+              {formatCurrency(summary.outstanding)}
             </span>
           </div>
         </div>
@@ -87,17 +72,23 @@ export function ClientDetailSection({
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '40%' }}>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
                     Booking Name
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '20%' }}>
-                    Events Count
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                    Events
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '20%' }}>
-                    Date
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                    First Event
                   </th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600" style={{ width: '20%' }}>
-                    Amount
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
+                    Package
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
+                    Received
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
+                    Due
                   </th>
                 </tr>
               </thead>
@@ -106,11 +97,17 @@ export function ClientDetailSection({
                   <tr key={ba.bookingId} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">{ba.bookingName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {ba.eventCount} {ba.eventCount === 1 ? 'event' : 'events'}
+                      {ba.eventCount}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(ba.bookingDate)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(ba.firstEventDate)}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-right text-gray-600">
-                      {formatCurrency(ba.amount)}
+                      {formatCurrency(ba.packageAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-semibold text-right text-green-600">
+                      {formatCurrency(ba.received)}
+                    </td>
+                    <td className={`px-4 py-3 text-sm font-semibold text-right ${getOutstandingColorClass(ba.due)}`}>
+                      {formatCurrency(ba.due)}
                     </td>
                   </tr>
                 ))}
