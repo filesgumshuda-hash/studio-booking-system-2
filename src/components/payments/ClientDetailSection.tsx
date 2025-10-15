@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { Client, ClientPaymentRecord } from '../../context/AppContext';
 import { ClientSummary, BookingAmount, formatCurrency, formatDate } from '../../utils/clientPaymentCalculations';
+import { getBookingDisplayName } from '../../utils/displayHelpers';
 import { Button } from '../common/Button';
 
 interface ClientDetailSectionProps {
@@ -161,7 +162,7 @@ export function ClientDetailSection({
                       {getPaymentMethodLabel(payment.payment_method)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {payment.booking?.booking_name || 'Unknown Booking'}
+                      {getBookingDisplayName(payment.booking)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{payment.remarks || '-'}</td>
                     <td className="px-4 py-3 text-center">

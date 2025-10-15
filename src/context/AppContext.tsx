@@ -15,7 +15,9 @@ export interface Client {
 export interface Booking {
   id: string;
   client_id: string;
+  booking_name?: string;
   booking_date: string;
+  package_amount?: number;
   notes?: string;
   created_at: string;
   updated_at: string;

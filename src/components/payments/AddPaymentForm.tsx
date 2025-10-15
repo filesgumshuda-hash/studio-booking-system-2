@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Staff, Event, StaffAssignment } from '../../context/AppContext';
 import { StaffSummary, formatCurrency } from '../../utils/paymentCalculations';
+import { formatEventForDropdown } from '../../utils/displayHelpers';
 import { Button } from '../common/Button';
 
 interface AddPaymentFormProps {
@@ -133,12 +134,7 @@ export function AddPaymentForm({
           <option value="">(None - General Payment)</option>
           {staffEvents.map((event) => (
             <option key={event.id} value={event.id}>
-              {event.event_name} ({event.booking?.client?.name || 'Unknown'}) -{' '}
-              {new Date(event.event_date).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              })}
+              {formatEventForDropdown(event)}
             </option>
           ))}
         </select>
