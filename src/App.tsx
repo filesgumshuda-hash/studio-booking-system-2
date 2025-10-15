@@ -1,8 +1,10 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { Calendar, Users, Clipboard, DollarSign, Briefcase, LayoutDashboard, UserCircle } from 'lucide-react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
-import { DashboardPage } from './pages/DashboardPage';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Navigation } from './components/common/Navigation';
+import { ProtectedRoute } from './components/common/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { EventTrackingPage } from './pages/EventTrackingPage';
 import { StaffPage } from './pages/StaffPage';
@@ -10,70 +12,106 @@ import { CalendarPage } from './pages/CalendarPage';
 import { NewPaymentsPage } from './pages/NewPaymentsPage';
 import { ClientPaymentsPage } from './pages/ClientPaymentsPage';
 
-function Navigation() {
-  const location = useLocation();
-
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/bookings', label: 'Bookings', icon: Briefcase },
-    { path: '/tracking', label: 'Event Tracking', icon: Clipboard },
-    { path: '/staff', label: 'Staff', icon: Users },
-    { path: '/calendar', label: 'Calendar', icon: Calendar },
-    { path: '/staff-payments', label: 'Staff Payments', icon: Users },
-    { path: '/client-payments', label: 'Client Payments', icon: UserCircle },
-  ];
+function AppRoutes() {
+  const { isAuthenticated } = useAuth();
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <h1 className="text-xl font-bold text-gray-900">WedRing Studios</h1>
-          </div>
-          <div className="flex space-x-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon size={18} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </nav>
+    <Routes>
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/bookings" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/"
+        element={<Navigate to={isAuthenticated ? "/bookings" : "/login"} replace />}
+      />
+      <Route
+        path="/bookings"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <BookingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-bookings"
+        element={
+          <ProtectedRoute allowedRoles={['staff']}>
+            <BookingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tracking"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <EventTrackingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-events"
+        element={
+          <ProtectedRoute allowedRoles={['staff']}>
+            <EventTrackingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/staff"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <StaffPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'staff']}>
+            <CalendarPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/staff-payments"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <NewPaymentsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-payments"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'staff']}>
+            <NewPaymentsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/client-payments"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ClientPaymentsPage />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
 function App() {
   return (
     <BrowserRouter>
-      <AppProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/bookings" element={<BookingsPage />} />
-            <Route path="/tracking" element={<EventTrackingPage />} />
-            <Route path="/staff" element={<StaffPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/staff-payments" element={<NewPaymentsPage />} />
-            <Route path="/client-payments" element={<ClientPaymentsPage />} />
-          </Routes>
-        </div>
-      </AppProvider>
+      <AuthProvider>
+        <AppProvider>
+          <div className="min-h-screen bg-gray-50">
+            <Navigation />
+            <AppRoutes />
+          </div>
+        </AppProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppData, StaffPaymentRecord } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
@@ -16,9 +17,11 @@ import {
   formatCurrency,
   formatDate,
 } from '../utils/paymentCalculations';
+import { getAccessiblePayments, canManagePayments } from '../utils/accessControl';
 
 export function NewPaymentsPage() {
-  const { staff, events, staffAssignments, staffPaymentRecords, dispatch } = useAppData();
+  const { user } = useAuth();
+  const { staff, events, staffAssignments, staffPaymentRecords, bookings, dispatch } = useAppData();
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -32,9 +35,23 @@ export function NewPaymentsPage() {
   });
   const { showToast, ToastComponent } = useToast();
 
+  const isAdmin = user?.role === 'admin';
+  const isStaffOrManager = user?.role === 'staff' || user?.role === 'manager';
+
+  const accessiblePayments = useMemo(() => {
+    return getAccessiblePayments(user, staffPaymentRecords);
+  }, [user, staffPaymentRecords]);
+
+  useEffect(() => {
+    if (isStaffOrManager && user?.staffId) {
+      setSelectedStaffId(user.staffId);
+    }
+  }, [isStaffOrManager, user]);
+
   const top10Staff = useMemo(() => {
+    if (!isAdmin) return [];
     return getTop10Staff(staff, staffPaymentRecords);
-  }, [staff, staffPaymentRecords]);
+  }, [isAdmin, staff, staffPaymentRecords]);
 
   const selectedStaff = useMemo(() => {
     if (!selectedStaffId) return null;
@@ -45,18 +62,18 @@ export function NewPaymentsPage() {
     if (!selectedStaffId) return null;
     const staffMember = staff.find((s) => s.id === selectedStaffId);
     if (!staffMember) return null;
-    return calculateStaffSummary(selectedStaffId, staffMember.name, staffPaymentRecords);
-  }, [selectedStaffId, staff, staffPaymentRecords]);
+    return calculateStaffSummary(selectedStaffId, staffMember.name, accessiblePayments);
+  }, [selectedStaffId, staff, accessiblePayments]);
 
   const selectedStaffEventAmounts = useMemo(() => {
     if (!selectedStaffId) return [];
-    return getStaffEvents(selectedStaffId, events, staffAssignments, staffPaymentRecords);
-  }, [selectedStaffId, events, staffAssignments, staffPaymentRecords]);
+    return getStaffEvents(selectedStaffId, events, staffAssignments, accessiblePayments);
+  }, [selectedStaffId, events, staffAssignments, accessiblePayments]);
 
   const selectedStaffPaymentHistory = useMemo(() => {
     if (!selectedStaffId) return [];
-    return getStaffPayments(selectedStaffId, staffPaymentRecords);
-  }, [selectedStaffId, staffPaymentRecords]);
+    return getStaffPayments(selectedStaffId, accessiblePayments);
+  }, [selectedStaffId, accessiblePayments]);
 
   const activeStaff = useMemo(() => {
     return staff.filter((s) => s.status === 'active').sort((a, b) => a.name.localeCompare(b.name));
@@ -125,62 +142,70 @@ export function NewPaymentsPage() {
     }
   };
 
+  const pageTitle = isStaffOrManager ? 'My Payments' : 'Payments Management';
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Payments Management</h1>
-          <Button
-            onClick={() => {
-              if (selectedStaffId) {
-                setShowAddPaymentModal(true);
-              } else {
-                showToast('Please select a staff member first', 'error');
-              }
-            }}
-            className="bg-gray-900 hover:bg-gray-800"
-          >
-            + New Payment
-          </Button>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Staff by Outstanding Balance</h2>
-          {top10Staff.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <p className="text-gray-500">No payment records yet. Add a payment to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {top10Staff.map((summary) => (
-                <StaffSummaryCard
-                  key={summary.staffId}
-                  summary={summary}
-                  onClick={() => handleStaffSelect(summary.staffId)}
-                />
-              ))}
-            </div>
+          <h1 className="text-3xl font-bold text-gray-900">{pageTitle}</h1>
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                if (selectedStaffId) {
+                  setShowAddPaymentModal(true);
+                } else {
+                  showToast('Please select a staff member first', 'error');
+                }
+              }}
+              className="bg-gray-900 hover:bg-gray-800"
+            >
+              + New Payment
+            </Button>
           )}
         </div>
 
-        <div className="mb-8">
-          <label htmlFor="staffSelect" className="block text-sm font-medium text-gray-700 mb-2">
-            Search or Select Staff:
-          </label>
-          <select
-            id="staffSelect"
-            value={selectedStaffId || ''}
-            onChange={(e) => handleStaffSelect(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
-          >
-            <option value="">-- Select a staff member --</option>
-            {activeStaff.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.role.charAt(0).toUpperCase() + s.role.slice(1).replace('_', ' ')})
-              </option>
-            ))}
-          </select>
-        </div>
+        {isAdmin && (
+          <>
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Staff by Outstanding Balance</h2>
+              {top10Staff.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <p className="text-gray-500">No payment records yet. Add a payment to get started.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {top10Staff.map((summary) => (
+                    <StaffSummaryCard
+                      key={summary.staffId}
+                      summary={summary}
+                      onClick={() => handleStaffSelect(summary.staffId)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mb-8">
+              <label htmlFor="staffSelect" className="block text-sm font-medium text-gray-700 mb-2">
+                Search or Select Staff:
+              </label>
+              <select
+                id="staffSelect"
+                value={selectedStaffId || ''}
+                onChange={(e) => handleStaffSelect(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+              >
+                <option value="">-- Select a staff member --</option>
+                {activeStaff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.role.charAt(0).toUpperCase() + s.role.slice(1).replace('_', ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         {selectedStaff && selectedStaffSummary && (
           <StaffDetailSection
@@ -188,13 +213,22 @@ export function NewPaymentsPage() {
             summary={selectedStaffSummary}
             eventAmounts={selectedStaffEventAmounts}
             paymentHistory={selectedStaffPaymentHistory}
-            onAddPayment={() => setShowAddPaymentModal(true)}
-            onDeletePayment={handleDeletePayment}
+            onAddPayment={isAdmin ? () => setShowAddPaymentModal(true) : undefined}
+            onDeletePayment={isAdmin ? handleDeletePayment : undefined}
+            isReadOnly={isStaffOrManager}
           />
+        )}
+
+        {isStaffOrManager && selectedStaffSummary && (
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> Contact admin to update your payment information.
+            </p>
+          </div>
         )}
       </div>
 
-      {showAddPaymentModal && selectedStaff && selectedStaffSummary && (
+      {showAddPaymentModal && selectedStaff && selectedStaffSummary && isAdmin && (
         <Modal
           isOpen={showAddPaymentModal}
           onClose={() => setShowAddPaymentModal(false)}
@@ -212,7 +246,7 @@ export function NewPaymentsPage() {
         </Modal>
       )}
 
-      {deleteConfirmation.isOpen && deleteConfirmation.payment && (
+      {deleteConfirmation.isOpen && deleteConfirmation.payment && isAdmin && (
         <ConfirmDialog
           isOpen={deleteConfirmation.isOpen}
           title="Delete Payment?"

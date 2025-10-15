@@ -8,8 +8,9 @@ interface StaffDetailSectionProps {
   summary: StaffSummary;
   eventAmounts: EventAmount[];
   paymentHistory: StaffPaymentRecord[];
-  onAddPayment: () => void;
-  onDeletePayment: (paymentId: string) => void;
+  onAddPayment?: () => void;
+  onDeletePayment?: (paymentId: string) => void;
+  isReadOnly?: boolean;
 }
 
 export function StaffDetailSection({
@@ -38,9 +39,11 @@ export function StaffDetailSection({
         <h2 className="text-xl font-bold text-gray-900">
           Selected Staff: <span className="text-gray-700">{staff.name}</span>
         </h2>
-        <Button onClick={onAddPayment} className="bg-green-600 hover:bg-green-700">
-          + Add Payment
-        </Button>
+        {onAddPayment && (
+          <Button onClick={onAddPayment} className="bg-green-600 hover:bg-green-700">
+            + Add Payment
+          </Button>
+        )}
       </div>
 
       <div className="bg-gray-50 p-4 rounded-lg">
@@ -129,7 +132,9 @@ export function StaffDetailSection({
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Amount</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Method</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Remarks</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Action</th>
+                  {onDeletePayment && (
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Action</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -154,15 +159,17 @@ export function StaffDetailSection({
                       {getPaymentMethodLabel(payment.payment_method)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{payment.remarks || '-'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => onDeletePayment(payment.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                        title="Delete payment"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
+                    {onDeletePayment && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => onDeletePayment(payment.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete payment"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
