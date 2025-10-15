@@ -34,6 +34,7 @@ export function AddClientPaymentForm({
   onSubmit,
   onCancel,
 }: AddClientPaymentFormProps) {
+  const [paymentType, setPaymentType] = useState<'received' | 'agreed'>('received');
   const [formData, setFormData] = useState<ClientPaymentFormData>({
     clientId: client?.id || '',
     bookingId: '',
@@ -66,11 +67,21 @@ export function AddClientPaymentForm({
       ...booking,
       balance,
       eventCount,
-      displayName: `${booking.booking_name || `Booking ${booking.id.slice(0, 8)}`} (${eventCount} ${
-        eventCount === 1 ? 'event' : 'events'
-      }) - Due: ${formatCurrency(balance)}`,
+      displayName: `${booking.booking_name || `Booking ${booking.id.slice(0, 8)}`} - Due: ${formatCurrency(balance)}`,
     };
   }).sort((a, b) => b.balance - a.balance);
+
+  const handlePaymentTypeChange = (type: 'received' | 'agreed') => {
+    setPaymentType(type);
+    setFormData({
+      ...formData,
+      paymentStatus: type,
+      paymentDate: type === 'received' ? new Date().toISOString().split('T')[0] : '',
+      paymentMethod: type === 'received' ? 'cash' : '',
+      transactionRef: '',
+    });
+    setErrors({});
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -87,24 +98,26 @@ export function AddClientPaymentForm({
       newErrors.amount = 'Amount must be greater than 0';
     }
 
-    if (!formData.paymentDate) {
-      newErrors.paymentDate = 'Payment date is required';
-    } else {
-      const selectedDate = new Date(formData.paymentDate);
-      const oneYearFromNow = new Date();
-      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    if (paymentType === 'received') {
+      if (!formData.paymentDate) {
+        newErrors.paymentDate = 'Payment date is required';
+      } else {
+        const selectedDate = new Date(formData.paymentDate);
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
-      if (selectedDate > oneYearFromNow) {
-        newErrors.paymentDate = 'Date cannot be more than 1 year ahead';
+        if (selectedDate > oneYearFromNow) {
+          newErrors.paymentDate = 'Date cannot be more than 1 year ahead';
+        }
       }
-    }
 
-    if (!formData.paymentMethod) {
-      newErrors.paymentMethod = 'Payment method is required';
-    }
+      if (!formData.paymentMethod) {
+        newErrors.paymentMethod = 'Payment method is required';
+      }
 
-    if (!formData.paymentStatus) {
-      newErrors.paymentStatus = 'Payment status is required';
+      if (formData.amount > bookingBalance && bookingBalance > 0) {
+        newErrors.amount = `Amount exceeds remaining balance (${formatCurrency(bookingBalance)})`;
+      }
     }
 
     setErrors(newErrors);
@@ -127,7 +140,62 @@ export function AddClientPaymentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Payment Type Selection - TOP OF FORM */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Payment Type <span className="text-red-600">*</span>
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <label
+            className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              paymentType === 'received'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <input
+              type="radio"
+              name="paymentType"
+              value="received"
+              checked={paymentType === 'received'}
+              onChange={() => handlePaymentTypeChange('received')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="font-semibold text-gray-900 flex items-center gap-2">
+                💵 Payment Received
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Client has paid money</div>
+            </div>
+          </label>
+
+          <label
+            className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              paymentType === 'agreed'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <input
+              type="radio"
+              name="paymentType"
+              value="agreed"
+              checked={paymentType === 'agreed'}
+              onChange={() => handlePaymentTypeChange('agreed')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="font-semibold text-gray-900 flex items-center gap-2">
+                📋 Payment Agreed
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Setting package amount</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Client Selection */}
       <div>
         <label htmlFor="clientId" className="block text-sm font-medium text-gray-700 mb-2">
           Select Client <span className="text-red-600">*</span>
@@ -154,6 +222,7 @@ export function AddClientPaymentForm({
         {errors.clientId && <p className="mt-1 text-sm text-red-600">{errors.clientId}</p>}
       </div>
 
+      {/* Booking Selection */}
       {formData.clientId && (
         <div>
           <label htmlFor="bookingId" className="block text-sm font-medium text-gray-700 mb-2">
@@ -181,12 +250,13 @@ export function AddClientPaymentForm({
         </div>
       )}
 
+      {/* Payment Amount */}
       <div>
         <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
           Payment Amount <span className="text-red-600">*</span>
         </label>
         <div className="relative">
-          <span className="absolute left-3 top-2 text-gray-600">₹</span>
+          <span className="absolute left-3 top-2 text-gray-600 text-lg font-semibold">₹</span>
           <input
             type="number"
             id="amount"
@@ -201,12 +271,12 @@ export function AddClientPaymentForm({
             }`}
           />
         </div>
-        {selectedBooking && (
-          <p className="mt-1 text-xs text-gray-500">
+        {selectedBooking && bookingBalance > 0 && (
+          <p className="mt-1 text-xs text-gray-600">
             Remaining balance for this booking: {formatCurrency(bookingBalance)}
           </p>
         )}
-        {formData.amount > bookingBalance && bookingBalance > 0 && (
+        {formData.amount > bookingBalance && bookingBalance > 0 && paymentType === 'received' && (
           <p className="mt-1 text-sm text-amber-600 flex items-center gap-1">
             <AlertCircle size={14} /> Amount exceeds outstanding balance
           </p>
@@ -214,127 +284,118 @@ export function AddClientPaymentForm({
         {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
       </div>
 
-      <div>
-        <label htmlFor="paymentDate" className="block text-sm font-medium text-gray-700 mb-2">
-          Payment Date <span className="text-red-600">*</span>
-        </label>
-        <input
-          type="date"
-          id="paymentDate"
-          value={formData.paymentDate}
-          onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-            errors.paymentDate ? 'border-red-500' : 'border-gray-300'
-          }`}
-        />
-        {errors.paymentDate && <p className="mt-1 text-sm text-red-600">{errors.paymentDate}</p>}
-      </div>
+      {/* Conditional Fields - Payment Received Only */}
+      {paymentType === 'received' && (
+        <>
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Payment Details</h4>
 
-      <div>
-        <label htmlFor="paymentStatus" className="block text-sm font-medium text-gray-700 mb-2">
-          Payment Status <span className="text-red-600">*</span>
-        </label>
-        <select
-          id="paymentStatus"
-          value={formData.paymentStatus}
-          onChange={(e) => {
-            setFormData({ ...formData, paymentStatus: e.target.value as 'agreed' | 'received' });
-            setErrors({ ...errors, paymentStatus: '' });
-          }}
-          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-            errors.paymentStatus ? 'border-red-500' : 'border-gray-300'
-          }`}
-        >
-          <option value="received">Payment Received</option>
-          <option value="agreed">Payment Agreed (To Be Received)</option>
-        </select>
-        <p className="mt-1 text-xs text-gray-500">
-          {formData.paymentStatus === 'received'
-            ? 'Money has been received from the client'
-            : 'Amount agreed but payment is pending'}
-        </p>
-        {errors.paymentStatus && <p className="mt-1 text-sm text-red-600">{errors.paymentStatus}</p>}
-      </div>
+            {/* Payment Date */}
+            <div className="mb-4">
+              <label htmlFor="paymentDate" className="block text-sm font-medium text-gray-700 mb-2">
+                Payment Date <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="date"
+                id="paymentDate"
+                value={formData.paymentDate}
+                onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                  errors.paymentDate ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.paymentDate && <p className="mt-1 text-sm text-red-600">{errors.paymentDate}</p>}
+            </div>
 
-      <div>
-        <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-2">
-          Payment Method <span className="text-red-600">*</span>
-        </label>
-        <select
-          id="paymentMethod"
-          value={formData.paymentMethod}
-          onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-            errors.paymentMethod ? 'border-red-500' : 'border-gray-300'
-          }`}
-        >
-          <option value="cash">Cash</option>
-          <option value="upi">UPI</option>
-          <option value="bank_transfer">Bank Transfer</option>
-          <option value="cheque">Cheque</option>
-          <option value="others">Others</option>
-        </select>
-        {errors.paymentMethod && <p className="mt-1 text-sm text-red-600">{errors.paymentMethod}</p>}
-      </div>
+            {/* Payment Method */}
+            <div className="mb-4">
+              <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-2">
+                Payment Method <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="paymentMethod"
+                value={formData.paymentMethod}
+                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                  errors.paymentMethod ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cheque">Cheque</option>
+                <option value="others">Others</option>
+              </select>
+              {errors.paymentMethod && <p className="mt-1 text-sm text-red-600">{errors.paymentMethod}</p>}
+            </div>
 
-      <div>
-        <label htmlFor="transactionRef" className="block text-sm font-medium text-gray-700 mb-2">
-          Transaction Reference
-        </label>
-        <input
-          type="text"
-          id="transactionRef"
-          value={formData.transactionRef}
-          onChange={(e) => setFormData({ ...formData, transactionRef: e.target.value.slice(0, 100) })}
-          placeholder="UTR number, Cheque number, Transaction ID"
-          maxLength={100}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-        />
-      </div>
+            {/* Transaction Reference */}
+            <div>
+              <label htmlFor="transactionRef" className="block text-sm font-medium text-gray-700 mb-2">
+                Transaction Reference
+              </label>
+              <input
+                type="text"
+                id="transactionRef"
+                value={formData.transactionRef}
+                onChange={(e) => setFormData({ ...formData, transactionRef: e.target.value.slice(0, 100) })}
+                placeholder="UTR number, Cheque number, Transaction ID"
+                maxLength={100}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            </div>
+          </div>
+        </>
+      )}
 
+      {/* Remarks - Always Shown */}
       <div>
         <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-2">
           Remarks
         </label>
-        <input
-          type="text"
+        <textarea
           id="remarks"
           value={formData.remarks}
           onChange={(e) => setFormData({ ...formData, remarks: e.target.value.slice(0, 200) })}
           placeholder="e.g., First installment, Advance payment"
           maxLength={200}
+          rows={3}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
         />
         <p className="mt-1 text-xs text-gray-500">{formData.remarks.length}/200 characters</p>
       </div>
 
+      {/* Current Summary */}
       {currentSummary && selectedClient && (
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Current Summary for this Client:</h4>
-          <div className="flex gap-6 text-sm">
+        <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4">
+            Current Summary for {selectedClient.name}:
+          </h4>
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <span className="text-gray-600">Total Owed: </span>
-              <span className="font-semibold text-gray-900">{formatCurrency(currentSummary.totalOwed)}</span>
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Agreed</div>
+              <div className="text-xl font-bold text-gray-900">{formatCurrency(currentSummary.totalOwed)}</div>
             </div>
             <div>
-              <span className="text-gray-600">Paid: </span>
-              <span className="font-semibold text-green-600">{formatCurrency(currentSummary.totalPaid)}</span>
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Received</div>
+              <div className="text-xl font-bold text-green-600">{formatCurrency(currentSummary.totalReceived)}</div>
             </div>
             <div>
-              <span className="text-gray-600">Due: </span>
-              <span
-                className={`font-semibold ${
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Due</div>
+              <div
+                className={`text-xl font-bold ${
                   currentSummary.totalDue > 0 ? 'text-red-600' : 'text-green-600'
                 }`}
               >
                 {formatCurrency(currentSummary.totalDue)}
-              </span>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex justify-end gap-3 pt-4">
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
         <Button type="button" onClick={onCancel} variant="secondary">
           Cancel
         </Button>
