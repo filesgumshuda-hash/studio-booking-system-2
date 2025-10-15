@@ -373,21 +373,21 @@ export function AddClientPaymentForm({
           </h4>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Agreed</div>
-              <div className="text-xl font-bold text-gray-900">{formatCurrency(currentSummary.totalOwed)}</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Package Amount</div>
+              <div className="text-xl font-bold text-gray-900">{formatCurrency(currentSummary.packageAmount)}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Received</div>
               <div className="text-xl font-bold text-green-600">{formatCurrency(currentSummary.totalReceived)}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Due</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Outstanding</div>
               <div
                 className={`text-xl font-bold ${
-                  currentSummary.totalDue > 0 ? 'text-red-600' : 'text-green-600'
+                  currentSummary.outstanding > 0 ? 'text-red-600' : 'text-green-600'
                 }`}
               >
-                {formatCurrency(currentSummary.totalDue)}
+                {formatCurrency(currentSummary.outstanding)}
               </div>
             </div>
           </div>
