@@ -43,6 +43,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
   const [alternateContact, setAlternateContact] = useState('');
   const [clientNotes, setClientNotes] = useState('');
   const [bookingReference, setBookingReference] = useState('');
+  const [bookingName, setBookingName] = useState('');
 
   const [originalEventIds, setOriginalEventIds] = useState<string[]>([]);
 
@@ -71,6 +72,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
         setAlternateContact(client.alternate_contact || '');
         setClientNotes(client.notes || '');
       }
+      setBookingName(booking.booking_name || '');
     }
   }, [booking]);
 
@@ -268,6 +270,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
           .from('bookings')
           .insert({
             client_id: clientId,
+            booking_name: bookingName.trim() || null,
             notes: clientNotes || null,
           })
           .select()
@@ -275,6 +278,13 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
         if (bookingError) throw bookingError;
         bookingId = newBooking.id;
+      } else if (booking) {
+        await supabase
+          .from('bookings')
+          .update({
+            booking_name: bookingName.trim() || null,
+          })
+          .eq('id', booking.id);
       }
 
       if (booking && originalEventIds.length > 0) {
@@ -614,6 +624,26 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
         </div>
           </>
         )}
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Booking Information</h3>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Booking Name
+            <span className="text-gray-500 text-xs ml-1">(Optional - e.g., "Priya's Wedding Package")</span>
+          </label>
+          <input
+            type="text"
+            value={bookingName}
+            onChange={(e) => setBookingName(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+            placeholder="Leave empty to auto-generate from client name"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            This name will appear in dropdowns and reports. If left empty, it will show as "ClientName's Booking"
+          </p>
+        </div>
       </div>
 
       {!booking && (

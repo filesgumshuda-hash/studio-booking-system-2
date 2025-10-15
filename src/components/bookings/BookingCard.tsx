@@ -44,6 +44,10 @@ export function BookingCard({ booking, onEdit, onDelete }: BookingCardProps) {
             <StatusBadge status={status} />
           </div>
 
+          {booking.booking_name && (
+            <p className="text-gray-700 font-medium mb-2">{booking.booking_name}</p>
+          )}
+
           {primaryEvent && (
             <p className="text-gray-600 mb-3">{primaryEvent.event_name}</p>
           )}
