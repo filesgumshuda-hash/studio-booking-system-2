@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Staff, Event, StaffAssignment } from '../../context/AppContext';
+import { Staff, Event, StaffAssignment, Booking, Client } from '../../context/AppContext';
 import { StaffSummary, formatCurrency } from '../../utils/paymentCalculations';
 import { formatEventForDropdown } from '../../utils/displayHelpers';
 import { Button } from '../common/Button';
@@ -8,6 +8,8 @@ interface AddPaymentFormProps {
   staff: Staff;
   events: Event[];
   staffAssignments: StaffAssignment[];
+  bookings: Booking[];
+  clients: Client[];
   currentSummary: StaffSummary;
   onSubmit: (data: PaymentFormData) => void;
   onCancel: () => void;
@@ -26,6 +28,8 @@ export function AddPaymentForm({
   staff,
   events,
   staffAssignments,
+  bookings,
+  clients,
   currentSummary,
   onSubmit,
   onCancel,
@@ -45,7 +49,20 @@ export function AddPaymentForm({
     .filter((sa) => sa.staff_id === staff.id)
     .map((sa) => sa.event_id);
 
-  const staffEvents = events.filter((e) => staffEventIds.includes(e.id));
+  const staffEvents = events
+    .filter((e) => staffEventIds.includes(e.id))
+    .map((event) => {
+      const booking = bookings.find((b) => b.id === event.booking_id);
+      const client = booking ? clients.find((c) => c.id === booking.client_id) : undefined;
+
+      return {
+        ...event,
+        booking: booking ? {
+          ...booking,
+          client: client,
+        } : undefined,
+      };
+    });
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
