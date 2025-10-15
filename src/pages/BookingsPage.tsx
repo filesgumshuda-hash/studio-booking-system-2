@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { BookingCard } from '../components/bookings/BookingCard';
 import { BookingForm } from '../components/bookings/BookingForm';
+import { SelectiveDeleteModal, DeletionOptions } from '../components/bookings/SelectiveDeleteModal';
 import { useAppData, Booking } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -14,7 +15,7 @@ import { getAccessibleBookings, canManageBookings, canDeleteBookings } from '../
 
 export function BookingsPage() {
   const { user } = useAuth();
-  const { bookings, events, clients, staff, staffAssignments, workflows, payments, refreshData } = useAppData();
+  const { bookings, events, clients, staff, staffAssignments, workflows, payments, staffPaymentRecords, clientPaymentRecords, refreshData } = useAppData();
 
   const accessibleBookings = useMemo(() => {
     return getAccessibleBookings(user, bookings, events);
@@ -24,6 +25,8 @@ export function BookingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | undefined>();
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
+  const [showSelectiveDelete, setShowSelectiveDelete] = useState(false);
+  const [deletingBookingData, setDeletingBookingData] = useState<{ id: string; name: string; clientName: string } | null>(null);
   const { showToast, ToastComponent } = useToast();
 
   const enrichedBookings = useMemo(() => {
@@ -109,14 +112,22 @@ export function BookingsPage() {
   };
 
   const handleDelete = async (bookingId: string) => {
-    const bookingPayments = payments.filter(p => {
-      const event = events.find(e => e.id === p.event_id);
-      return event?.booking_id === bookingId;
-    });
+    const booking = bookings.find(b => b.id === bookingId);
+    const client = clients.find(c => c.id === booking?.client_id);
+    const bookingEvents = events.filter(e => e.booking_id === bookingId);
 
-    if (bookingPayments.length > 0) {
-      showToast('Cannot delete booking with existing payments', 'error');
-      setDeletingBookingId(null);
+    const hasClientPayments = clientPaymentRecords.some(p => p.booking_id === bookingId);
+    const hasStaffPayments = staffPaymentRecords.some(p =>
+      bookingEvents.some(e => e.id === p.event_id)
+    );
+
+    if (hasClientPayments || hasStaffPayments) {
+      setDeletingBookingData({
+        id: bookingId,
+        name: (booking as any)?.booking_name || 'Unnamed Booking',
+        clientName: client?.name || 'Unknown Client'
+      });
+      setShowSelectiveDelete(true);
       return;
     }
 
@@ -136,6 +147,97 @@ export function BookingsPage() {
       showToast(error.message, 'error');
     } finally {
       setDeletingBookingId(null);
+    }
+  };
+
+  const handleSelectiveDelete = async (bookingId: string, options: DeletionOptions) => {
+    try {
+      const deletionSteps: string[] = [];
+      const bookingEvents = events.filter(e => e.booking_id === bookingId);
+      const eventIds = bookingEvents.map(e => e.id);
+
+      if (options.clientPayments) {
+        const { error } = await supabase
+          .from('client_payment_records')
+          .delete()
+          .eq('booking_id', bookingId);
+        if (error) throw error;
+
+        const count = clientPaymentRecords.filter(p => p.booking_id === bookingId).length;
+        deletionSteps.push(`Deleted ${count} client payment record${count !== 1 ? 's' : ''}`);
+      }
+
+      if (options.staffAgreedPayments) {
+        const agreedIds = staffPaymentRecords
+          .filter(p => eventIds.includes(p.event_id || '') && p.type === 'agreed')
+          .map(p => p.id);
+
+        if (agreedIds.length > 0) {
+          const { error } = await supabase
+            .from('staff_payment_records')
+            .delete()
+            .in('id', agreedIds);
+          if (error) throw error;
+          deletionSteps.push(`Deleted ${agreedIds.length} staff agreed payment record${agreedIds.length !== 1 ? 's' : ''}`);
+        }
+      }
+
+      if (options.staffMadePayments) {
+        const madeIds = staffPaymentRecords
+          .filter(p => eventIds.includes(p.event_id || '') && p.type === 'made')
+          .map(p => p.id);
+
+        if (madeIds.length > 0) {
+          const { error } = await supabase
+            .from('staff_payment_records')
+            .delete()
+            .in('id', madeIds);
+          if (error) throw error;
+          deletionSteps.push(`Deleted ${madeIds.length} staff made payment record${madeIds.length !== 1 ? 's' : ''}`);
+        }
+      }
+
+      if (options.events && eventIds.length > 0) {
+        const { error: workflowError } = await supabase
+          .from('workflows')
+          .delete()
+          .in('event_id', eventIds);
+        if (workflowError) throw workflowError;
+
+        const { error: assignmentError } = await supabase
+          .from('staff_assignments')
+          .delete()
+          .in('event_id', eventIds);
+        if (assignmentError) throw assignmentError;
+
+        const { error: eventError } = await supabase
+          .from('events')
+          .delete()
+          .in('id', eventIds);
+        if (eventError) throw eventError;
+
+        deletionSteps.push(`Deleted ${eventIds.length} event${eventIds.length !== 1 ? 's' : ''} with tracking data`);
+      }
+
+      if (options.booking) {
+        const { error } = await supabase
+          .from('bookings')
+          .delete()
+          .eq('id', bookingId);
+        if (error) throw error;
+        deletionSteps.push('Deleted booking');
+      }
+
+      await refreshData();
+      showToast(
+        `Successfully deleted: ${deletionSteps.join(', ')}`,
+        'success'
+      );
+    } catch (error: any) {
+      showToast(`Deletion failed: ${error.message}`, 'error');
+    } finally {
+      setShowSelectiveDelete(false);
+      setDeletingBookingData(null);
     }
   };
 
@@ -225,6 +327,20 @@ export function BookingsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setDeletingBookingId(null)}
       />
+
+      {deletingBookingData && (
+        <SelectiveDeleteModal
+          bookingId={deletingBookingData.id}
+          bookingName={deletingBookingData.name}
+          clientName={deletingBookingData.clientName}
+          isOpen={showSelectiveDelete}
+          onClose={() => {
+            setShowSelectiveDelete(false);
+            setDeletingBookingData(null);
+          }}
+          onConfirm={handleSelectiveDelete}
+        />
+      )}
 
       {ToastComponent}
     </div>
