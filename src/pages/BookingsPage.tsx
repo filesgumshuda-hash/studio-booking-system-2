@@ -3,10 +3,10 @@ import { Plus } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { SearchBar } from '../components/common/SearchBar';
 import { Modal } from '../components/common/Modal';
-import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { BookingCard } from '../components/bookings/BookingCard';
 import { BookingForm } from '../components/bookings/BookingForm';
+import { DeleteBookingDialog } from '../components/bookings/DeleteBookingDialog';
 import { useAppData, Booking } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -14,7 +14,7 @@ import { getAccessibleBookings, canManageBookings, canDeleteBookings } from '../
 
 export function BookingsPage() {
   const { user } = useAuth();
-  const { bookings, events, clients, staff, staffAssignments, workflows, payments, refreshData } = useAppData();
+  const { bookings, events, clients, staff, staffAssignments, workflows, payments, clientPaymentRecords, staffPaymentRecords, refreshData } = useAppData();
 
   const accessibleBookings = useMemo(() => {
     return getAccessibleBookings(user, bookings, events);
@@ -23,7 +23,8 @@ export function BookingsPage() {
   const [filterType, setFilterType] = useState<'active' | 'past'>('active');
   const [showForm, setShowForm] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | undefined>();
-  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
+  const [deletingBooking, setDeletingBooking] = useState<Booking | null>(null);
+  const [deletePaymentSummary, setDeletePaymentSummary] = useState<any>(null);
   const { showToast, ToastComponent } = useToast();
 
   const enrichedBookings = useMemo(() => {
@@ -109,33 +110,101 @@ export function BookingsPage() {
   };
 
   const handleDelete = async (bookingId: string) => {
-    const bookingPayments = payments.filter(p => {
-      const event = events.find(e => e.id === p.event_id);
-      return event?.booking_id === bookingId;
-    });
+    const booking = bookings.find(b => b.id === bookingId);
+    if (!booking) return;
 
-    if (bookingPayments.length > 0) {
-      showToast('Cannot delete booking with existing payments', 'error');
-      setDeletingBookingId(null);
+    if (!canDeleteBookings(user)) {
+      showToast('Only admin can delete bookings', 'error');
       return;
     }
 
-    setDeletingBookingId(bookingId);
+    const bookingEvents = events.filter(e => e.booking_id === bookingId);
+    const bookingEventIds = bookingEvents.map(e => e.id);
+
+    const clientPayments = clientPaymentRecords.filter(p => p.booking_id === bookingId);
+    const staffPayments = staffPaymentRecords.filter(p => bookingEventIds.includes(p.event_id || ''));
+
+    const clientTotal = booking.package_amount || 0;
+    const clientPaid = clientPayments
+      .filter(p => p.payment_status === 'paid')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const clientOutstanding = clientTotal - clientPaid;
+
+    const staffTotal = staffPayments
+      .filter(p => p.type === 'agreed')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const staffPaid = staffPayments
+      .filter(p => p.type === 'made')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const staffOutstanding = staffTotal - staffPaid;
+
+    const paymentSummary = {
+      clientPayments: {
+        total: clientTotal,
+        paid: clientPaid,
+        outstanding: clientOutstanding,
+        count: clientPayments.length
+      },
+      staffPayments: {
+        total: staffTotal,
+        paid: staffPaid,
+        outstanding: staffOutstanding,
+        count: staffPayments.length
+      }
+    };
+
+    setDeletingBooking(booking);
+    setDeletePaymentSummary(paymentSummary);
   };
 
   const confirmDelete = async () => {
-    if (!deletingBookingId) return;
+    if (!deletingBooking) return;
 
     try {
-      const { error } = await supabase.from('bookings').delete().eq('id', deletingBookingId);
-      if (error) throw error;
+      const bookingEvents = events.filter(e => e.booking_id === deletingBooking.id);
+      const bookingEventIds = bookingEvents.map(e => e.id);
+
+      const clientPayments = clientPaymentRecords.filter(p => p.booking_id === deletingBooking.id);
+      const staffPayments = staffPaymentRecords.filter(p => bookingEventIds.includes(p.event_id || ''));
+
+      if (clientPayments.length > 0) {
+        const { error: clientPaymentError } = await supabase
+          .from('client_payment_records')
+          .delete()
+          .eq('booking_id', deletingBooking.id);
+        if (clientPaymentError) throw clientPaymentError;
+      }
+
+      if (staffPayments.length > 0) {
+        const { error: staffPaymentError } = await supabase
+          .from('staff_payment_records')
+          .delete()
+          .in('id', staffPayments.map(p => p.id));
+        if (staffPaymentError) throw staffPaymentError;
+      }
+
+      if (bookingEvents.length > 0) {
+        const { error: eventsError } = await supabase
+          .from('events')
+          .delete()
+          .eq('booking_id', deletingBooking.id);
+        if (eventsError) throw eventsError;
+      }
+
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('id', deletingBooking.id);
+      if (bookingError) throw bookingError;
 
       await refreshData();
-      showToast('Booking deleted successfully', 'success');
+      showToast('Booking and all associated data deleted successfully', 'success');
     } catch (error: any) {
-      showToast(error.message, 'error');
+      console.error('Delete error:', error);
+      showToast(error.message || 'Failed to delete booking', 'error');
     } finally {
-      setDeletingBookingId(null);
+      setDeletingBooking(null);
+      setDeletePaymentSummary(null);
     }
   };
 
@@ -215,16 +284,20 @@ export function BookingsPage() {
         />
       </Modal>
 
-      <ConfirmDialog
-        isOpen={!!deletingBookingId}
-        title="Delete Booking"
-        message="Are you sure you want to delete this booking? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletingBookingId(null)}
-      />
+      {deletingBooking && (
+        <DeleteBookingDialog
+          isOpen={true}
+          bookingName={deletingBooking.booking_name || 'Unknown Booking'}
+          clientName={deletingBooking.client?.name || 'Unknown Client'}
+          eventCount={events.filter(e => e.booking_id === deletingBooking.id).length}
+          paymentSummary={deletePaymentSummary}
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setDeletingBooking(null);
+            setDeletePaymentSummary(null);
+          }}
+        />
+      )}
 
       {ToastComponent}
     </div>
