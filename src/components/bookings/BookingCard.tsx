@@ -4,7 +4,9 @@ import { Card } from '../common/Card';
 import { StatusBadge } from '../common/StatusBadge';
 import { Button } from '../common/Button';
 import { Booking, Event, useAppData } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatDate, formatTimeSlot, getBookingStatus } from '../../utils/helpers';
+import { canManageBookings, canDeleteBookings } from '../../utils/accessControl';
 
 interface BookingCardProps {
   booking: Booking;
@@ -14,6 +16,7 @@ interface BookingCardProps {
 
 export function BookingCard({ booking, onEdit, onDelete }: BookingCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const { user } = useAuth();
   const { events, staffAssignments, workflows } = useAppData();
 
   const bookingEvents = events.filter(e => e.booking_id === booking.id);
@@ -95,20 +98,24 @@ export function BookingCard({ booking, onEdit, onDelete }: BookingCardProps) {
         </div>
 
         <div className="flex gap-2 ml-4">
-          <button
-            onClick={() => onEdit(booking)}
-            className="text-gray-600 hover:text-blue-600 transition-colors"
-            title="Edit"
-          >
-            <Edit size={18} />
-          </button>
-          <button
-            onClick={() => onDelete(booking.id)}
-            className="text-gray-600 hover:text-red-600 transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={18} />
-          </button>
+          {canManageBookings(user) && (
+            <button
+              onClick={() => onEdit(booking)}
+              className="text-gray-600 hover:text-blue-600 transition-colors"
+              title="Edit"
+            >
+              <Edit size={18} />
+            </button>
+          )}
+          {canDeleteBookings(user) && (
+            <button
+              onClick={() => onDelete(booking.id)}
+              className="text-gray-600 hover:text-red-600 transition-colors"
+              title="Delete"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </div>
     </Card>

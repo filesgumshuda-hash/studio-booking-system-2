@@ -5,18 +5,25 @@ import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EventDetailsModal } from '../components/calendar/EventDetailsModal';
 import { useAppData } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { detectConflicts, getTimeSlotBadge, formatDate, formatDateForStorage } from '../utils/helpers';
+import { getAccessibleEvents } from '../utils/accessControl';
 import { Event } from '../context/AppContext';
 
 export function CalendarPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { events, clients, bookings, staff, staffAssignments } = useAppData();
+
+  const accessibleEvents = useMemo(() => {
+    return getAccessibleEvents(user, events);
+  }, [user, events]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterType, setFilterType] = useState<'all' | 'conflicts' | 'shortages'>('all');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { conflicts, shortages } = detectConflicts(events, staffAssignments);
+  const { conflicts, shortages } = detectConflicts(accessibleEvents, staffAssignments);
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -45,14 +52,14 @@ export function CalendarPage() {
   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
 
   const eventsInMonth = useMemo(() => {
-    return events.filter((event) => {
+    return accessibleEvents.filter((event) => {
       const [year, month] = event.event_date.split('-').map(Number);
       return (
         year === currentDate.getFullYear() &&
         month - 1 === currentDate.getMonth()
       );
     });
-  }, [events, currentDate]);
+  }, [accessibleEvents, currentDate]);
 
   const getEventsForDay = (day: number) => {
     const dateString = formatDateForStorage(currentDate.getFullYear(), currentDate.getMonth(), day);

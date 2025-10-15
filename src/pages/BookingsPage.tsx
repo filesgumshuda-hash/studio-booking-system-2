@@ -8,10 +8,17 @@ import { useToast } from '../components/common/Toast';
 import { BookingCard } from '../components/bookings/BookingCard';
 import { BookingForm } from '../components/bookings/BookingForm';
 import { useAppData, Booking } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getAccessibleBookings, canManageBookings, canDeleteBookings } from '../utils/accessControl';
 
 export function BookingsPage() {
+  const { user } = useAuth();
   const { bookings, events, clients, staff, staffAssignments, workflows, payments, refreshData } = useAppData();
+
+  const accessibleBookings = useMemo(() => {
+    return getAccessibleBookings(user, bookings, events);
+  }, [user, bookings, events]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'active' | 'past'>('active');
   const [showForm, setShowForm] = useState(false);
@@ -20,7 +27,7 @@ export function BookingsPage() {
   const { showToast, ToastComponent } = useToast();
 
   const enrichedBookings = useMemo(() => {
-    return bookings.map(booking => {
+    return accessibleBookings.map(booking => {
       const bookingEvents = events.filter(e => e.booking_id === booking.id).map(event => {
         const eventAssignments = staffAssignments.filter(sa => sa.event_id === event.id);
         return {
@@ -148,11 +155,13 @@ export function BookingsPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Bookings</h1>
-            <Button variant="primary" onClick={() => setShowForm(true)}>
-              <Plus size={20} className="mr-2" />
-              New Booking
-            </Button>
+            <h1 className="text-3xl font-bold text-gray-900">{user?.role === 'staff' ? 'My Bookings' : 'Bookings'}</h1>
+            {canManageBookings(user) && (
+              <Button variant="primary" onClick={() => setShowForm(true)}>
+                <Plus size={20} className="mr-2" />
+                New Booking
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row gap-4">

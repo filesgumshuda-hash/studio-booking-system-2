@@ -28,9 +28,16 @@ export function getAccessibleEvents(user: User | null, allEvents: Event[]): Even
   }
 
   if (user.role === 'staff' && user.staffId) {
-    return allEvents.filter(event => {
-      return event.staff_assignments?.some(assignment => assignment.staff_id === user.staffId);
+    const assignedBookingIds = new Set<string>();
+
+    allEvents.forEach(event => {
+      const isAssigned = event.staff_assignments?.some(assignment => assignment.staff_id === user.staffId);
+      if (isAssigned) {
+        assignedBookingIds.add(event.booking_id);
+      }
     });
+
+    return allEvents.filter(event => assignedBookingIds.has(event.booking_id));
   }
 
   return [];

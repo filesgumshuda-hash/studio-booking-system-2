@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useAppData, Booking } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { validatePhoneNumber, validateEmail, ValidationError } from '../../utils/validation';
+import { canManageBookings } from '../../utils/accessControl';
 
 interface EventFormData {
   id?: string;
@@ -26,6 +28,7 @@ interface BookingFormProps {
 }
 
 export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) {
+  const { user } = useAuth();
   const { staff, clients, refreshData } = useAppData();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -195,6 +198,12 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!canManageBookings(user)) {
+      alert('You do not have permission to modify bookings.');
+      return;
+    }
+
     if (!validate()) return;
 
     setLoading(true);

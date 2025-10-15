@@ -6,9 +6,12 @@ import { Modal } from '../components/common/Modal';
 import { useToast } from '../components/common/Toast';
 import { StaffCard } from '../components/staff/StaffCard';
 import { StaffForm } from '../components/staff/StaffForm';
+import { UserManagement } from '../components/admin/UserManagement';
 import { useAppData, Staff } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 export function StaffPage() {
+  const { user } = useAuth();
   const { staff, refreshData } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -64,9 +67,15 @@ export function StaffPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Staff Management</h1>
+
+        {user?.role === 'admin' && (
+          <UserManagement staff={staff} />
+        )}
+
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Staff Management</h1>
+            <h2 className="text-xl font-bold text-gray-900">Staff List</h2>
             <Button variant="primary" onClick={() => setShowForm(true)}>
               <Plus size={20} className="mr-2" />
               Add Staff
