@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Event, Workflow, useAppData } from '../../context/AppContext';
 import { WorkflowStep } from './WorkflowStep';
+import { DataCollectionChecklist } from './DataCollectionChecklist';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../utils/helpers';
 
@@ -10,11 +11,15 @@ interface EventWorkflowProps {
 }
 
 export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
-  const { refreshData } = useAppData();
+  const { refreshData, staffAssignments } = useAppData();
   const [activeTab, setActiveTab] = useState<'still' | 'reel' | 'video' | 'portrait'>('still');
   const [notes, setNotes] = useState('');
 
   if (!workflow) return null;
+
+  const eventStaffAssignments = staffAssignments.filter(
+    (assignment) => assignment.event_id === event.id
+  );
 
   const stillSteps = [
     { key: 'rawDataSent', label: 'Raw Data Sent to Client' },
@@ -108,36 +113,45 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
   const portraitProgress = getProgress(workflow.portrait_workflow);
 
   return (
-    <div className="bg-white rounded-lg shadow-md">
-      <div className="border-b border-gray-200">
-        <div className="flex gap-1 p-2">
-          {[
-            { id: 'still', label: 'Still', progress: stillProgress },
-            { id: 'reel', label: 'Reel', progress: reelProgress },
-            { id: 'video', label: 'Video', progress: videoProgress },
-            { id: 'portrait', label: 'Portrait', progress: portraitProgress },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {tab.label} ({tab.progress.completed}/{tab.progress.total})
-            </button>
-          ))}
-        </div>
+    <div className="border-l-4 border-gray-200 pl-6 mb-6">
+      <div className="mb-4">
+        <h3 className="text-lg font-bold text-gray-900">{event.event_name}</h3>
+        <p className="text-sm text-gray-600">Date: {formatDate(event.event_date)}</p>
       </div>
 
-      <div className="p-6">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">{event.event_name}</h3>
-          <p className="text-gray-600">Date: {formatDate(event.event_date)}</p>
+      <DataCollectionChecklist
+        eventId={event.id}
+        staffAssignments={eventStaffAssignments}
+        onUpdate={refreshData}
+      />
+
+      <div className="bg-white rounded-lg shadow-md">
+        <div className="border-b border-gray-200">
+          <div className="flex gap-1 p-2">
+            {[
+              { id: 'still', label: 'Still', progress: stillProgress },
+              { id: 'reel', label: 'Reel', progress: reelProgress },
+              { id: 'video', label: 'Video', progress: videoProgress },
+              { id: 'portrait', label: 'Portrait', progress: portraitProgress },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {tab.label} ({tab.progress.completed}/{tab.progress.total})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-6">
           {notes && (
-            <div className="mt-3">
+            <div className="mb-4">
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -147,17 +161,17 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
               />
             </div>
           )}
-        </div>
 
-        <div className="space-y-3">
-          {steps.map((step) => (
-            <WorkflowStep
-              key={step.key}
-              label={step.label}
-              step={(activeWorkflow as any)[step.key] || { completed: false }}
-              onToggle={() => toggleStep(activeTab, step.key)}
-            />
-          ))}
+          <div className="space-y-3">
+            {steps.map((step) => (
+              <WorkflowStep
+                key={step.key}
+                label={step.label}
+                step={(activeWorkflow as any)[step.key] || { completed: false }}
+                onToggle={() => toggleStep(activeTab, step.key)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
