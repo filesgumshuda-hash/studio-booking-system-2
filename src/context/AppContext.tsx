@@ -60,6 +60,9 @@ export interface StaffAssignment {
   event_id: string;
   staff_id: string;
   role: string;
+  data_received?: boolean;
+  data_received_at?: string;
+  data_received_by?: string;
   created_at: string;
   staff?: Staff;
   event?: Event;
