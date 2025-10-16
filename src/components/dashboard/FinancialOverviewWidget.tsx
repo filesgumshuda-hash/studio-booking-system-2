@@ -1,11 +1,9 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card } from '../common/Card';
 import { useAppData } from '../../context/AppContext';
 
 export function FinancialOverviewWidget() {
-  const navigate = useNavigate();
-  const { bookings, clientPaymentRecords, staffPaymentRecords, events } = useAppData();
+  const { bookings, clientPaymentRecords, staffPaymentRecords } = useAppData();
 
   const calculateClientPayments = () => {
     const packageAmount = bookings.reduce((sum, b) => sum + (b.package_amount || 0), 0);
@@ -85,12 +83,6 @@ export function FinancialOverviewWidget() {
             </span>
           </div>
         </div>
-        <button
-          onClick={() => navigate('/client-payments')}
-          className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
-          View All Clients →
-        </button>
       </div>
 
       <div className="h-px bg-gray-200 my-4" />
@@ -112,12 +104,6 @@ export function FinancialOverviewWidget() {
             </span>
           </div>
         </div>
-        <button
-          onClick={() => navigate('/staff-payments')}
-          className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
-          View All Staff →
-        </button>
       </div>
     </Card>
   );

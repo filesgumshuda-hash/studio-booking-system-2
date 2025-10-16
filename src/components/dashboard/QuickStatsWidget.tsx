@@ -38,8 +38,6 @@ export function QuickStatsWidget() {
       });
       return workflows;
     }).length,
-
-    rating: 4.8
   };
 
   return (
@@ -71,16 +69,14 @@ export function QuickStatsWidget() {
           <span className="text-2xl font-bold text-gray-900">{stats.staffActive}</span>
         </div>
 
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600 flex items-center gap-1">
-            <span>✅</span> Completed:
-          </span>
-          <span className="text-2xl font-bold text-gray-900">{stats.completed}</span>
-        </div>
+        <div className="h-px bg-gray-200" />
 
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Avg Rating:</span>
-          <span className="text-2xl font-bold text-gray-900">{stats.rating}⭐</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600">✅</span>
+            <span className="text-sm text-gray-600">Completed:</span>
+          </div>
+          <span className="text-lg font-semibold text-gray-900">{stats.completed}</span>
         </div>
       </div>
     </Card>

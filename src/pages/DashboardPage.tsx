@@ -9,8 +9,7 @@ import { detectConflicts, formatDate, getBookingStatus, getWorkflowProgress } fr
 import { FinancialOverviewWidget } from '../components/dashboard/FinancialOverviewWidget';
 import { QuickStatsWidget } from '../components/dashboard/QuickStatsWidget';
 import { RecentActivityWidget } from '../components/dashboard/RecentActivityWidget';
-import { TopClientsWidget } from '../components/dashboard/TopClientsWidget';
-import { StaffPerformanceWidget } from '../components/dashboard/StaffPerformanceWidget';
+import { PaymentQuickAccess } from '../components/dashboard/PaymentQuickAccess';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -211,14 +210,7 @@ export function DashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <FinancialOverviewWidget />
-          </div>
-          <div>
-            <QuickStatsWidget />
-          </div>
-        </div>
+        <PaymentQuickAccess />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card>
@@ -285,16 +277,7 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        <div className="mb-8">
-          <RecentActivityWidget />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <TopClientsWidget />
-          <StaffPerformanceWidget />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/bookings')}>
             <div className="text-center py-6">
               <Clipboard className="mx-auto mb-3 text-gray-600" size={36} />
@@ -318,6 +301,15 @@ export function DashboardPage() {
               <p className="text-sm text-gray-600">View and assign team members</p>
             </div>
           </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <FinancialOverviewWidget />
+          <QuickStatsWidget />
+        </div>
+
+        <div className="mb-8">
+          <RecentActivityWidget />
         </div>
       </div>
     </div>
