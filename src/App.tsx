@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navigation } from './components/common/Navigation';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { EventTrackingPage } from './pages/EventTrackingPage';
 import { StaffPage } from './pages/StaffPage';
@@ -19,11 +20,19 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/bookings" replace /> : <LoginPage />}
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
       <Route
         path="/"
-        element={<Navigate to={isAuthenticated ? "/bookings" : "/login"} replace />}
+        element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />}
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'staff']}>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/bookings"

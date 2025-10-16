@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Users, Clipboard, DollarSign, Briefcase, UserCircle, LogOut, Camera } from 'lucide-react';
+import { Calendar, Users, Clipboard, DollarSign, Briefcase, UserCircle, LogOut, Camera, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -15,6 +15,7 @@ export function Navigation() {
     switch (user.role) {
       case 'admin':
         return [
+          { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
           { path: '/bookings', label: 'Bookings', icon: Briefcase },
           { path: '/tracking', label: 'Event Tracking', icon: Clipboard },
           { path: '/staff', label: 'Staff', icon: Users },
@@ -24,6 +25,7 @@ export function Navigation() {
         ];
       case 'manager':
         return [
+          { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
           { path: '/bookings', label: 'Bookings', icon: Briefcase },
           { path: '/tracking', label: 'Event Tracking', icon: Clipboard },
           { path: '/staff', label: 'Staff', icon: Users },
@@ -32,6 +34,7 @@ export function Navigation() {
         ];
       case 'staff':
         return [
+          { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
           { path: '/my-bookings', label: 'My Bookings', icon: Briefcase },
           { path: '/my-events', label: 'My Events', icon: Clipboard },
           { path: '/calendar', label: 'Calendar', icon: Calendar },
