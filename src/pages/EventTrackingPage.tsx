@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { WorkflowStep } from '../components/tracking/WorkflowStep';
 import { useAppData } from '../context/AppContext';
-import type { Event, Staff } from '../context/AppContext';
+import type { Event } from '../context/AppContext';
 import { getBookingStatus, getWorkflowProgress, formatDate, formatTimeSlot } from '../utils/helpers';
 import { supabase } from '../lib/supabase';
+import { Users, ChevronDown, ChevronRight } from 'lucide-react';
 
 type WorkflowType = 'still' | 'reel' | 'video' | 'portrait';
 
@@ -17,16 +19,9 @@ interface EnrichedBooking {
   workflows: any[];
 }
 
-interface StaffWithAssignment extends Staff {
-  assignmentId: string;
-  data_received: boolean;
-}
-
 export function EventTrackingPage() {
+  const navigate = useNavigate();
   const { bookings, events, clients, workflows, staffAssignments, staff } = useAppData();
-  const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
-  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-  const [activeWorkflowTabs, setActiveWorkflowTabs] = useState<Record<string, WorkflowType>>({});
 
   const enrichedBookings = useMemo(() => {
     return bookings
@@ -57,32 +52,67 @@ export function EventTrackingPage() {
       });
   }, [bookings, events, clients, workflows]);
 
-  const toggleBooking = (bookingId: string) => {
-    const newExpanded = new Set(expandedBookings);
-    if (newExpanded.has(bookingId)) {
-      newExpanded.delete(bookingId);
-    } else {
-      newExpanded.add(bookingId);
-    }
-    setExpandedBookings(newExpanded);
+  const calculateDataCollection = (booking: EnrichedBooking) => {
+    const photographers = new Set<string>();
+    const videographers = new Set<string>();
+
+    booking.events.forEach(event => {
+      const assignments = staffAssignments.filter(sa => sa.event_id === event.id);
+      assignments.forEach(assignment => {
+        const staffMember = staff.find(s => s.id === assignment.staff_id);
+        if (staffMember) {
+          if (staffMember.role === 'photographer') {
+            photographers.add(assignment.staff_id);
+          } else if (staffMember.role === 'videographer') {
+            videographers.add(assignment.staff_id);
+          }
+        }
+      });
+    });
+
+    const photosReceived = Array.from(photographers).filter(staffId => {
+      return staffAssignments.some(sa =>
+        sa.staff_id === staffId &&
+        booking.events.some(e => e.id === sa.event_id) &&
+        (sa as any).data_received
+      );
+    }).length;
+
+    const videosReceived = Array.from(videographers).filter(staffId => {
+      return staffAssignments.some(sa =>
+        sa.staff_id === staffId &&
+        booking.events.some(e => e.id === sa.event_id) &&
+        (sa as any).data_received
+      );
+    }).length;
+
+    return {
+      photos: {
+        received: photosReceived,
+        total: photographers.size || 0
+      },
+      videos: {
+        received: videosReceived,
+        total: videographers.size || 0
+      }
+    };
   };
 
-  const toggleEvent = (eventId: string) => {
-    const newExpanded = new Set(expandedEvents);
-    if (newExpanded.has(eventId)) {
-      newExpanded.delete(eventId);
-    } else {
-      newExpanded.add(eventId);
-    }
-    setExpandedEvents(newExpanded);
+  const calculateOverallProgress = (booking: EnrichedBooking) => {
+    const { totals, completed } = calculateBookingProgress(booking);
+    const totalSteps = totals.still + totals.reel + totals.video + totals.portrait;
+    const completedSteps = completed.still + completed.reel + completed.video + completed.portrait;
+
+    if (totalSteps === 0) return 0;
+    return Math.round((completedSteps / totalSteps) * 100);
   };
 
-  const getActiveTab = (bookingId: string): WorkflowType => {
-    return activeWorkflowTabs[bookingId] || 'still';
-  };
-
-  const setActiveTab = (bookingId: string, tab: WorkflowType) => {
-    setActiveWorkflowTabs(prev => ({ ...prev, [bookingId]: tab }));
+  const getProgressColor = (percentage: number) => {
+    if (percentage === 100) return 'bg-green-500';
+    if (percentage >= 75) return 'bg-blue-500';
+    if (percentage >= 50) return 'bg-yellow-500';
+    if (percentage >= 25) return 'bg-orange-500';
+    return 'bg-red-500';
   };
 
   const calculateBookingProgress = (booking: EnrichedBooking) => {
@@ -104,407 +134,163 @@ export function EventTrackingPage() {
     return { totals, completed };
   };
 
-  const handleStaffToggle = async (eventId: string, assignmentId: string, checked: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('staff_assignments')
-        .update({
-          data_received: checked,
-          data_received_at: checked ? new Date().toISOString() : null,
-          data_received_by: checked ? 'Admin' : null,
-        })
-        .eq('id', assignmentId);
+  const getLatestEventDate = (events: Event[]) => {
+    if (events.length === 0) return '';
+    const sorted = [...events].sort((a, b) =>
+      new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+    );
+    return sorted[0].event_date;
+  };
 
-      if (error) throw error;
+  const getStatusBadgeClass = (status: string) => {
+    const classes: Record<string, string> = {
+      shoot_scheduled: 'bg-blue-100 text-blue-800',
+      in_progress: 'bg-yellow-100 text-yellow-800',
+      post_production: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800'
+    };
+    return classes[status] || 'bg-gray-100 text-gray-800';
+  };
 
-      window.location.reload();
-    } catch (error) {
-      console.error('Error updating staff assignment:', error);
-    }
+  const formatStatus = (status: string) => {
+    return status.split('_').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Event Tracking</h1>
-          <p className="text-gray-600 mt-2">Manage workflow progress for all events</p>
+          <p className="text-gray-600 mt-1">Manage workflow progress for all bookings</p>
         </div>
 
-        <div className="space-y-4">
-          {enrichedBookings.length === 0 ? (
-            <Card>
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No bookings with events found</p>
-              </div>
-            </Card>
-          ) : (
-            enrichedBookings.map((booking) => {
+        {enrichedBookings.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">📸</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No bookings yet
+            </h3>
+            <p className="text-gray-600">
+              Create your first booking to start tracking
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {enrichedBookings.map((booking) => {
               const status = getBookingStatus(booking.events, booking.workflows);
-              const isExpanded = expandedBookings.has(booking.id);
-              const latestEvent = booking.events.reduce((latest, e) =>
-                e.event_date > latest.event_date ? e : latest
-              );
-              const { totals, completed } = calculateBookingProgress(booking);
+              const overallProgress = calculateOverallProgress(booking);
+              const dataCollection = calculateDataCollection(booking);
+              const latestDate = getLatestEventDate(booking.events);
 
               return (
-                <Card key={booking.id}>
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">
+                <div
+                  key={booking.id}
+                  onClick={() => navigate(`/tracking/${booking.id}`)}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer"
+                >
+                  {/* Client & Booking Name */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">📸</span>
+                      <h3 className="text-lg font-bold text-gray-900 truncate">
                         {booking.client?.name}
-                      </h2>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Booking: {booking.booking_name || `${booking.client?.name}'s Booking`}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {booking.events.length} Event{booking.events.length > 1 ? 's' : ''} • Latest: {formatDate(latestEvent.event_date)}
-                      </p>
+                      </h3>
                     </div>
-                    <StatusBadge status={status} />
+                    <p className="text-sm text-gray-600 truncate">
+                      {booking.booking_name || `${booking.client?.name}'s Booking`}
+                    </p>
                   </div>
 
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                      Overall Progress:
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <ProgressCard
-                        label="Still"
-                        completed={completed.still}
-                        total={totals.still}
-                      />
-                      <ProgressCard
-                        label="Reel"
-                        completed={completed.reel}
-                        total={totals.reel}
-                      />
-                      <ProgressCard
-                        label="Video"
-                        completed={completed.video}
-                        total={totals.video}
-                      />
-                      <ProgressCard
-                        label="Portrait"
-                        completed={completed.portrait}
-                        total={totals.portrait}
+                  <div className="border-t border-gray-200 pt-4 mb-4" />
+
+                  {/* Event Count & Latest Date */}
+                  <div className="mb-4 text-sm text-gray-600">
+                    <p>{booking.events.length} Event{booking.events.length !== 1 ? 's' : ''}</p>
+                    <p className="truncate">Latest: {formatDate(latestDate)}</p>
+                  </div>
+
+                  {/* Overall Progress */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Overall:</span>
+                      <span className="text-sm font-bold text-gray-900">{overallProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(overallProgress)}`}
+                        style={{ width: `${overallProgress}%` }}
                       />
                     </div>
                   </div>
 
-                  {booking.events.map((event, index) => {
-                    const isEventExpanded = expandedEvents.has(event.id);
-                    const eventStaffAssignments = staffAssignments
-                      .filter((sa) => sa.event_id === event.id)
-                      .map((sa) => ({
-                        ...staff.find((s) => s.id === sa.staff_id)!,
-                        assignmentId: sa.id,
-                        data_received: (sa as any).data_received || false,
-                      }));
-
-                    return (
-                      <div key={event.id} className="mb-4 border-l-4 border-blue-500 pl-4">
-                        <button
-                          onClick={() => toggleEvent(event.id)}
-                          className="w-full text-left flex items-center gap-2 py-2 hover:bg-gray-50 rounded transition-colors"
-                        >
-                          <span className="text-gray-600 text-sm">
-                            {isEventExpanded ? '▼' : '▶'}
-                          </span>
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            Event {index + 1}: {event.event_name}
-                          </h3>
-                        </button>
-
-                        <div className="text-sm text-gray-600 mb-2 ml-6">
-                          Date: {formatDate(event.event_date)} | {formatTimeSlot(event.time_slot)} | Venue: {event.venue}
+                  {/* Data Collection */}
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Data Collection:</p>
+                    <div className="space-y-2">
+                      {/* Photos */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span>📸</span>
+                          <span className="text-gray-600">Photos:</span>
                         </div>
-
-                        {isEventExpanded && (
-                          <div className="mt-3 mb-4 ml-6 p-4 bg-gray-50 rounded-lg">
-                            <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                              Staff Assigned:
-                            </h4>
-                            {eventStaffAssignments.length > 0 ? (
-                              <div className="space-y-2">
-                                {eventStaffAssignments.map((staffMember) => (
-                                  <StaffCheckbox
-                                    key={staffMember.assignmentId}
-                                    staff={staffMember}
-                                    eventId={event.id}
-                                    onToggle={handleStaffToggle}
-                                  />
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">
-                                No staff assigned to this event yet
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        <span className="font-semibold">
+                          {dataCollection.photos.received}/{dataCollection.photos.total}
+                          {dataCollection.photos.total > 0 && (
+                            <span className="text-gray-500 ml-1">
+                              {Math.round((dataCollection.photos.received / dataCollection.photos.total) * 100)}%
+                            </span>
+                          )}
+                        </span>
                       </div>
-                    );
-                  })}
+                      {dataCollection.photos.total > 0 && (
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div
+                            className="h-1.5 rounded-full bg-blue-500 transition-all"
+                            style={{ width: `${(dataCollection.photos.received / dataCollection.photos.total) * 100}%` }}
+                          />
+                        </div>
+                      )}
 
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">
-                      Workflow Progress (Booking-level):
-                    </h3>
-
-                    <div className="flex gap-2 mb-6 flex-wrap">
-                      <WorkflowTab
-                        label="Still"
-                        count={`${completed.still}/${totals.still}`}
-                        isActive={getActiveTab(booking.id) === 'still'}
-                        onClick={() => setActiveTab(booking.id, 'still')}
-                      />
-                      <WorkflowTab
-                        label="Reel"
-                        count={`${completed.reel}/${totals.reel}`}
-                        isActive={getActiveTab(booking.id) === 'reel'}
-                        onClick={() => setActiveTab(booking.id, 'reel')}
-                      />
-                      <WorkflowTab
-                        label="Video"
-                        count={`${completed.video}/${totals.video}`}
-                        isActive={getActiveTab(booking.id) === 'video'}
-                        onClick={() => setActiveTab(booking.id, 'video')}
-                      />
-                      <WorkflowTab
-                        label="Portrait"
-                        count={`${completed.portrait}/${totals.portrait}`}
-                        isActive={getActiveTab(booking.id) === 'portrait'}
-                        onClick={() => setActiveTab(booking.id, 'portrait')}
-                      />
-                    </div>
-
-                    <div className="mt-4">
-                      <BookingWorkflowContent
-                        booking={booking}
-                        activeTab={getActiveTab(booking.id)}
-                      />
+                      {/* Videos */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span>🎥</span>
+                          <span className="text-gray-600">Videos:</span>
+                        </div>
+                        <span className="font-semibold">
+                          {dataCollection.videos.received}/{dataCollection.videos.total}
+                          {dataCollection.videos.total > 0 && (
+                            <span className="text-gray-500 ml-1">
+                              {Math.round((dataCollection.videos.received / dataCollection.videos.total) * 100)}%
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {dataCollection.videos.total > 0 && (
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div
+                            className="h-1.5 rounded-full bg-purple-500 transition-all"
+                            style={{ width: `${(dataCollection.videos.received / dataCollection.videos.total) * 100}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
-                </Card>
+
+                  {/* Status Badge */}
+                  <div className="flex justify-center">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(status)}`}>
+                      {formatStatus(status)}
+                    </span>
+                  </div>
+                </div>
               );
-            })
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProgressCard({ label, completed, total }: { label: string; completed: number; total: number }) {
-  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  const getColorClass = () => {
-    if (percentage === 0) return 'bg-gray-300';
-    if (percentage < 30) return 'bg-blue-500';
-    if (percentage < 60) return 'bg-orange-500';
-    if (percentage < 100) return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  return (
-    <div className="text-center">
-      <p className="text-sm font-medium text-gray-700 mb-1">{label}</p>
-      <p className="text-lg font-bold text-gray-900 mb-2">
-        {completed}/{total}
-      </p>
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-        <div
-          className={`h-2 rounded-full transition-all duration-300 ${getColorClass()}`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-      <p className="text-xs text-gray-500">{percentage}%</p>
-    </div>
-  );
-}
-
-function StaffCheckbox({
-  staff,
-  eventId,
-  onToggle,
-}: {
-  staff: StaffWithAssignment;
-  eventId: string;
-  onToggle: (eventId: string, assignmentId: string, checked: boolean) => void;
-}) {
-  const [isChecked, setIsChecked] = useState(staff.data_received);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked;
-    setIsChecked(checked);
-    onToggle(eventId, staff.assignmentId, checked);
-  };
-
-  const getRoleIcon = (role: string) => {
-    const iconMap: Record<string, string> = {
-      photographer: '📷',
-      videographer: '🎥',
-      drone_operator: '🚁',
-      editor: '✂️',
-      coordinator: '📋',
-      manager: '👔',
-    };
-    return iconMap[role] || '👤';
-  };
-
-  const formatRole = (role: string) => {
-    return role
-      .replace('_', ' ')
-      .split(' ')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  return (
-    <label className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors">
-      <input
-        type="checkbox"
-        checked={isChecked}
-        onChange={handleChange}
-        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-      />
-      <span className="text-lg">{getRoleIcon(staff.role)}</span>
-      <span className="flex-1 text-gray-900 font-medium">{staff.name}</span>
-      <span className="text-sm text-gray-500">({formatRole(staff.role)})</span>
-    </label>
-  );
-}
-
-function WorkflowTab({
-  label,
-  count,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  count: string;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-        isActive ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-    >
-      {label} ({count})
-    </button>
-  );
-}
-
-function BookingWorkflowContent({
-  booking,
-  activeTab,
-}: {
-  booking: EnrichedBooking;
-  activeTab: WorkflowType;
-}) {
-  const { refreshData } = useAppData();
-
-  const stillSteps = [
-    { key: 'rawDataSent', label: 'Raw Data Sent to Client' },
-    { key: 'clientSelectionReceived', label: 'Portrait / Album Selection Received' },
-    { key: 'sentToAlbumEditor', label: 'Sent to Album Editor' },
-    { key: 'albumPreviewSent', label: 'Album Preview / Soft Copy Sent to Client' },
-    { key: 'clientApproved', label: 'Client Approved Album' },
-    { key: 'revisionRequested', label: 'Revision Requested' },
-    { key: 'sentForPrinting', label: 'Sent for Printing' },
-    { key: 'albumFinalized', label: 'Album Finalized' },
-    { key: 'deliveredToClient', label: 'Delivered to Client' },
-  ];
-
-  const reelSteps = [
-    { key: 'reelSentToEditor', label: 'Reel Sent to Editor' },
-    { key: 'reelReceivedFromEditor', label: 'Reel Received from Editor' },
-    { key: 'reelSentToClient', label: 'Reel Sent to Client for Approval' },
-    { key: 'reelDelivered', label: 'Reel Delivered' },
-  ];
-
-  const videoSteps = [
-    { key: 'videoSentToEditor', label: 'Full Video Sent to Editor' },
-    { key: 'videoReceivedFromEditor', label: 'Full Video Received from Editor' },
-    { key: 'videoSentToClient', label: 'Full Video Sent to Client for Approval' },
-    { key: 'videoDelivered', label: 'Full Video Delivered' },
-  ];
-
-  const portraitSteps = [
-    { key: 'portraitEdited', label: 'Portrait Video Edited' },
-    { key: 'portraitDelivered', label: 'Portrait Video Delivered' },
-  ];
-
-  const getStepsByTab = () => {
-    switch (activeTab) {
-      case 'still':
-        return stillSteps;
-      case 'reel':
-        return reelSteps;
-      case 'video':
-        return videoSteps;
-      case 'portrait':
-        return portraitSteps;
-    }
-  };
-
-  const toggleStep = async (workflowId: string, workflowType: string, stepKey: string, currentWorkflow: any) => {
-    const workflowField = `${workflowType}_workflow`;
-    const currentStep = currentWorkflow[stepKey] || { completed: false };
-
-    const updatedStep = {
-      completed: !currentStep.completed,
-      completed_at: !currentStep.completed ? new Date().toISOString() : null,
-      updated_by: 'Admin',
-      notes: currentStep.notes || null,
-    };
-
-    const updatedWorkflow = {
-      ...currentWorkflow,
-      [stepKey]: updatedStep,
-    };
-
-    try {
-      const { error } = await supabase
-        .from('workflows')
-        .update({
-          [workflowField]: updatedWorkflow,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', workflowId);
-
-      if (error) throw error;
-      await refreshData();
-    } catch (error: any) {
-      console.error('Error updating workflow:', error);
-    }
-  };
-
-  const steps = getStepsByTab();
-
-  return (
-    <div className="space-y-6">
-      {booking.workflows.map((workflow) => {
-        const workflowField = `${activeTab}_workflow`;
-        const activeWorkflow = (workflow as any)[workflowField] || {};
-
-        return (
-          <div key={workflow.id} className="space-y-3">
-            {steps.map((step) => (
-              <WorkflowStep
-                key={step.key}
-                label={step.label}
-                step={activeWorkflow[step.key] || { completed: false }}
-                onToggle={() => toggleStep(workflow.id, activeTab, step.key, activeWorkflow)}
-              />
-            ))}
+            })}
           </div>
-        );
-      })}
+        )}
+      </div>
     </div>
   );
 }
