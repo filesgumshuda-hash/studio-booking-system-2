@@ -105,11 +105,6 @@ export function EventTrackingPage() {
                             </h3>
                             <StatusBadge status={status} />
                           </div>
-                          {booking.booking_name && (
-                            <p className="text-sm text-gray-600 mb-1">
-                              Booking: {booking.booking_name}
-                            </p>
-                          )}
                           <p className="text-gray-600 mb-3">
                             {booking.events.length} Event{booking.events.length > 1 ? 's' : ''} • Latest: {formatDate(latestEvent.event_date)}
                           </p>
