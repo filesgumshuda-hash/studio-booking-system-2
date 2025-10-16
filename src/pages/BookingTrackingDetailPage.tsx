@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAppData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { BookingWorkflow } from '../components/tracking/BookingWorkflow';
@@ -15,6 +15,7 @@ export function BookingTrackingDetailPage() {
   const { bookings, events, clients, workflows, staffAssignments, staff, refreshData } = useAppData();
 
   const [updatingAssignments, setUpdatingAssignments] = useState<Set<string>>(new Set());
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
 
   const booking = useMemo(() => {
     return bookings.find(b => b.id === bookingId);
@@ -34,6 +35,12 @@ export function BookingTrackingDetailPage() {
   const bookingWorkflow = useMemo(() => {
     return workflows.find(w => w.booking_id === bookingId);
   }, [workflows, bookingId]);
+
+  React.useEffect(() => {
+    if (bookingEvents.length > 0 && expandedEvents.size === 0) {
+      setExpandedEvents(new Set([bookingEvents[0].id]));
+    }
+  }, [bookingEvents]);
 
   const hasAccess = useMemo(() => {
     if (!user || !booking) return false;
@@ -71,11 +78,23 @@ export function BookingTrackingDetailPage() {
       .filter(sa => sa.staffMember);
   };
 
+  const toggleEvent = (eventId: string) => {
+    setExpandedEvents(prev => {
+      const next = new Set(prev);
+      if (next.has(eventId)) {
+        next.delete(eventId);
+      } else {
+        next.add(eventId);
+      }
+      return next;
+    });
+  };
+
   const toggleDataReceived = async (assignmentId: string, currentValue: boolean) => {
     setUpdatingAssignments(prev => new Set(prev).add(assignmentId));
 
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('staff_assignments')
         .update({ data_received: !currentValue })
         .eq('id', assignmentId);
@@ -110,6 +129,14 @@ export function BookingTrackingDetailPage() {
       'Delivered': 'bg-green-100 text-green-800',
     };
     return classes[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getLatestEventDate = () => {
+    if (bookingEvents.length === 0) return '';
+    const sorted = [...bookingEvents].sort((a, b) =>
+      new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+    );
+    return sorted[0].event_date;
   };
 
   if (!booking) {
@@ -188,6 +215,7 @@ export function BookingTrackingDetailPage() {
             Back to {user?.role === 'staff' ? 'My Events' : 'Event Tracking'}
           </Button>
 
+          {/* Booking Overview */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -196,7 +224,8 @@ export function BookingTrackingDetailPage() {
                   {booking.booking_name || `${client?.name}'s Booking`}
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
-                  {bookingEvents.length} Event{bookingEvents.length !== 1 ? 's' : ''}
+                  {bookingEvents.length} Event{bookingEvents.length !== 1 ? 's' : ''} •
+                  Latest: {formatDate(getLatestEventDate())}
                 </p>
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusBadgeClass(status)}`}>
@@ -220,112 +249,136 @@ export function BookingTrackingDetailPage() {
           </div>
         </div>
 
-        {/* Events Section */}
+        {/* Events Section with Expand/Collapse */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Events</h2>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {bookingEvents.map((event, index) => {
               const eventAssignments = getEventAssignments(event.id);
               const photographers = eventAssignments.filter(a => a.staffMember?.role === 'photographer');
               const videographers = eventAssignments.filter(a => a.staffMember?.role === 'videographer');
+              const isExpanded = expandedEvents.has(event.id);
 
               return (
-                <div key={event.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {index + 1}. {event.event_name}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        📅 {formatDate(event.event_date)} • 📍 {event.venue}
-                      </p>
+                <div key={event.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Event Header - Always Visible */}
+                  <button
+                    onClick={() => toggleEvent(event.id)}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-gray-600">
+                        {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                      </span>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {index + 1}. {event.event_name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          📅 {formatDate(event.event_date)} • 📍 {event.venue}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Data Collection for this Event */}
-                  {(photographers.length > 0 || videographers.length > 0) && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Data Collection</h4>
+                  {/* Expanded Content - Data Collection */}
+                  {isExpanded && (photographers.length > 0 || videographers.length > 0) && (
+                    <div className="px-4 pb-4 border-t border-gray-200 bg-gray-50">
+                      <div className="pt-4">
+                        <h4 className="font-semibold text-gray-900 mb-4">Data Collection</h4>
 
-                      {photographers.length > 0 && (
-                        <div className="mb-4">
-                          <p className="text-xs text-gray-600 mb-2">📸 Photographers ({photographers.length})</p>
-                          <div className="space-y-2">
-                            {photographers.map((assignment) => (
-                              <div
-                                key={assignment.id}
-                                className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                              >
-                                <div className="flex items-center gap-2">
-                                  {(assignment as any).data_received ? (
-                                    <CheckCircle size={16} className="text-green-600" />
-                                  ) : (
-                                    <XCircle size={16} className="text-gray-400" />
-                                  )}
-                                  <span className="text-sm text-gray-900">
-                                    {assignment.staffMember?.name}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => toggleDataReceived(assignment.id, (assignment as any).data_received || false)}
-                                  disabled={updatingAssignments.has(assignment.id)}
-                                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                    (assignment as any).data_received
-                                      ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        {/* Photographers */}
+                        {photographers.length > 0 && (
+                          <div className="mb-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span>📸</span>
+                              <span className="text-sm font-medium text-gray-700">
+                                Photographers ({photographers.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {photographers.map((assignment) => (
+                                <div
+                                  key={assignment.id}
+                                  className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-200"
                                 >
-                                  {updatingAssignments.has(assignment.id)
-                                    ? 'Updating...'
-                                    : (assignment as any).data_received
-                                    ? 'Received'
-                                    : 'Mark Received'}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {videographers.length > 0 && (
-                        <div>
-                          <p className="text-xs text-gray-600 mb-2">🎥 Videographers ({videographers.length})</p>
-                          <div className="space-y-2">
-                            {videographers.map((assignment) => (
-                              <div
-                                key={assignment.id}
-                                className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                              >
-                                <div className="flex items-center gap-2">
-                                  {(assignment as any).data_received ? (
-                                    <CheckCircle size={16} className="text-green-600" />
-                                  ) : (
-                                    <XCircle size={16} className="text-gray-400" />
-                                  )}
-                                  <span className="text-sm text-gray-900">
-                                    {assignment.staffMember?.name}
-                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    {(assignment as any).data_received ? (
+                                      <CheckCircle size={20} className="text-green-600" />
+                                    ) : (
+                                      <XCircle size={20} className="text-gray-400" />
+                                    )}
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {assignment.staffMember?.name}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleDataReceived(assignment.id, (assignment as any).data_received || false)}
+                                    disabled={updatingAssignments.has(assignment.id)}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                      (assignment as any).data_received
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {updatingAssignments.has(assignment.id)
+                                      ? 'Updating...'
+                                      : (assignment as any).data_received
+                                      ? 'Received'
+                                      : 'Mark Received'}
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => toggleDataReceived(assignment.id, (assignment as any).data_received || false)}
-                                  disabled={updatingAssignments.has(assignment.id)}
-                                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                    (assignment as any).data_received
-                                      ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                >
-                                  {updatingAssignments.has(assignment.id)
-                                    ? 'Updating...'
-                                    : (assignment as any).data_received
-                                    ? 'Received'
-                                    : 'Mark Received'}
-                                </button>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+
+                        {/* Videographers */}
+                        {videographers.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span>🎥</span>
+                              <span className="text-sm font-medium text-gray-700">
+                                Videographers ({videographers.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {videographers.map((assignment) => (
+                                <div
+                                  key={assignment.id}
+                                  className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    {(assignment as any).data_received ? (
+                                      <CheckCircle size={20} className="text-green-600" />
+                                    ) : (
+                                      <XCircle size={20} className="text-gray-400" />
+                                    )}
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {assignment.staffMember?.name}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleDataReceived(assignment.id, (assignment as any).data_received || false)}
+                                    disabled={updatingAssignments.has(assignment.id)}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                      (assignment as any).data_received
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {updatingAssignments.has(assignment.id)
+                                      ? 'Updating...'
+                                      : (assignment as any).data_received
+                                      ? 'Received'
+                                      : 'Mark Received'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
