@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { validatePhoneNumber, validateEmail, ValidationError } from '../../utils/validation';
 import { canManageBookings } from '../../utils/accessControl';
+import { createInitialWorkflowStructure } from '../tracking/BookingWorkflow';
 
 interface EventFormData {
   id?: string;
@@ -279,13 +280,11 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
         if (bookingError) throw bookingError;
         bookingId = newBooking.id;
 
+        const initialStructure = createInitialWorkflowStructure();
         await supabase.from('workflows').insert({
           booking_id: bookingId,
           event_id: null,
-          still_workflow: {},
-          reel_workflow: {},
-          video_workflow: {},
-          portrait_workflow: {}
+          ...initialStructure
         });
       } else if (booking) {
         await supabase

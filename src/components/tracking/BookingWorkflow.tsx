@@ -8,6 +8,36 @@ interface BookingWorkflowProps {
   workflow: Workflow | undefined;
 }
 
+export const createInitialWorkflowStructure = () => ({
+  still_workflow: {
+    rawDataSent: { completed: false },
+    clientSelectionReceived: { completed: false },
+    sentToAlbumEditor: { completed: false },
+    albumPreviewSent: { completed: false },
+    clientApproved: { completed: false },
+    revisionRequested: { completed: false },
+    sentForPrinting: { completed: false },
+    albumFinalized: { completed: false },
+    deliveredToClient: { completed: false },
+  },
+  reel_workflow: {
+    reelSentToEditor: { completed: false },
+    reelReceivedFromEditor: { completed: false },
+    reelSentToClient: { completed: false },
+    reelDelivered: { completed: false },
+  },
+  video_workflow: {
+    videoSentToEditor: { completed: false },
+    videoReceivedFromEditor: { completed: false },
+    videoSentToClient: { completed: false },
+    videoDelivered: { completed: false },
+  },
+  portrait_workflow: {
+    portraitEdited: { completed: false },
+    portraitDelivered: { completed: false },
+  },
+});
+
 export function BookingWorkflow({ bookingId, workflow }: BookingWorkflowProps) {
   const { refreshData } = useAppData();
   const [activeTab, setActiveTab] = useState<'still' | 'reel' | 'video' | 'portrait'>('still');
@@ -19,15 +49,13 @@ export function BookingWorkflow({ bookingId, workflow }: BookingWorkflowProps) {
       if (!workflow && bookingId && !isCreating) {
         setIsCreating(true);
         try {
+          const initialStructure = createInitialWorkflowStructure();
           const { error } = await supabase
             .from('workflows')
             .insert({
               booking_id: bookingId,
               event_id: null,
-              still_workflow: {},
-              reel_workflow: {},
-              video_workflow: {},
-              portrait_workflow: {}
+              ...initialStructure
             });
 
           if (error) {
