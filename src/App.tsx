@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { EventTrackingPage } from './pages/EventTrackingPage';
+import { BookingTrackingDetailPage } from './pages/BookingTrackingDetailPage';
 import { StaffPage } from './pages/StaffPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { NewPaymentsPage } from './pages/NewPaymentsPage';
@@ -63,6 +64,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['staff']}>
             <EventTrackingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tracking/:bookingId"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'staff']}>
+            <BookingTrackingDetailPage />
           </ProtectedRoute>
         }
       />
