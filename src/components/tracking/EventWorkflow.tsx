@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Event, Workflow, useAppData } from '../../context/AppContext';
 import { WorkflowStep } from './WorkflowStep';
+import { DataCollectionProgress } from './DataCollectionProgress';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../utils/helpers';
 
@@ -10,9 +11,25 @@ interface EventWorkflowProps {
 }
 
 export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
-  const { refreshData } = useAppData();
+  const { refreshData, staffAssignments, staff } = useAppData();
   const [activeTab, setActiveTab] = useState<'still' | 'reel' | 'video' | 'portrait'>('still');
   const [notes, setNotes] = useState('');
+
+  const assignedStaff = useMemo(() => {
+    const eventAssignments = staffAssignments.filter((sa) => sa.event_id === event.id);
+    return eventAssignments
+      .map((assignment) => {
+        const staffMember = staff.find((s) => s.id === assignment.staff_id);
+        return staffMember
+          ? {
+              id: staffMember.id,
+              name: staffMember.name,
+              role: staffMember.role,
+            }
+          : null;
+      })
+      .filter((s) => s !== null) as Array<{ id: string; name: string; role: string }>;
+  }, [event.id, staffAssignments, staff]);
 
   if (!workflow) return null;
 
@@ -148,6 +165,8 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
             </div>
           )}
         </div>
+
+        <DataCollectionProgress eventId={event.id} assignedStaff={assignedStaff} />
 
         <div className="space-y-3">
           {steps.map((step) => (
