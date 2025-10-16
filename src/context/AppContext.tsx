@@ -78,6 +78,7 @@ export interface WorkflowStep {
 export interface Workflow {
   id: string;
   event_id: string;
+  booking_id: string;
   still_workflow: Record<string, WorkflowStep>;
   reel_workflow: Record<string, WorkflowStep>;
   video_workflow: Record<string, WorkflowStep>;

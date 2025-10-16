@@ -28,14 +28,12 @@ export function EventTrackingPage() {
       .map((booking) => {
         const bookingEvents = events.filter((e) => e.booking_id === booking.id);
         const client = clients.find((c) => c.id === booking.client_id);
-        const bookingWorkflows = workflows.filter((w) =>
-          bookingEvents.some((e) => e.id === w.event_id)
-        );
+        const bookingWorkflow = workflows.find((w) => w.booking_id === booking.id);
         return {
           ...booking,
           events: bookingEvents,
           client,
-          workflows: bookingWorkflows,
+          workflows: bookingWorkflow ? [bookingWorkflow] : [],
         };
       })
       .filter((b) => b.events.length > 0)
