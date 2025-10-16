@@ -13,7 +13,27 @@ export function BookingWorkflow({ bookingId, workflow }: BookingWorkflowProps) {
   const [activeTab, setActiveTab] = useState<'still' | 'reel' | 'video' | 'portrait'>('still');
   const [notes, setNotes] = useState('');
 
-  if (!workflow) return null;
+  if (!workflow) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Workflow Progress</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Track deliverables for this booking (applies to all events)
+        </p>
+        <div className="text-center py-8">
+          <div className="text-gray-400 mb-2">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <p className="text-gray-600 font-medium">No workflow initialized yet</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Workflow tracking will appear once the booking is set up
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const stillSteps = [
     { key: 'rawDataSent', label: 'Raw Data Sent to Client' },
