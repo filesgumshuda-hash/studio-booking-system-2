@@ -24,10 +24,22 @@ export function RichBookingCard({ booking, onClick, onEdit, onDelete }: RichBook
   const paymentStatus = calculatePaymentStatus(booking, clientPaymentRecords);
   const overallProgress = calculateOverallProgress(bookingWorkflows);
 
+  const handleCardClick = () => {
+    onClick();
+  };
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleCardClick}
       className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer relative group"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       {/* Edit/Delete Icons */}
       {(canManageBookings(user) || canDeleteBookings(user)) && (
