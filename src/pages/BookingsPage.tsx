@@ -5,7 +5,8 @@ import { SearchBar } from '../components/common/SearchBar';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
-import { BookingCard } from '../components/bookings/BookingCard';
+import { RichBookingCard } from '../components/bookings/RichBookingCard';
+import { BookingDetailModal } from '../components/bookings/BookingDetailModal';
 import { BookingForm } from '../components/bookings/BookingForm';
 import { SelectiveDeleteModal, DeletionOptions } from '../components/bookings/SelectiveDeleteModal';
 import { useAppData, Booking } from '../context/AppContext';
@@ -27,6 +28,7 @@ export function BookingsPage() {
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [showSelectiveDelete, setShowSelectiveDelete] = useState(false);
   const [deletingBookingData, setDeletingBookingData] = useState<{ id: string; name: string; clientName: string } | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const { showToast, ToastComponent } = useToast();
 
   const enrichedBookings = useMemo(() => {
@@ -107,8 +109,19 @@ export function BookingsPage() {
   }, [enrichedBookings, searchQuery, filterType, workflows, staffAssignments, staff]);
 
   const handleEdit = (booking: Booking) => {
+    setSelectedBooking(null);
     setEditingBooking(booking);
     setShowForm(true);
+  };
+
+  const handleCardEdit = (booking: Booking) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleEdit(booking);
+  };
+
+  const handleCardDelete = (bookingId: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleDelete(bookingId);
   };
 
   const handleDelete = async (bookingId: string) => {
@@ -283,24 +296,39 @@ export function BookingsPage() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredBookings.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <p className="text-gray-500 text-lg">
-                {searchQuery ? 'No bookings found matching your search' : `No ${filterType} bookings`}
-              </p>
-            </div>
-          ) : (
-            filteredBookings.map((booking) => (
-              <BookingCard
+        {filteredBookings.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">📸</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {searchQuery ? 'No bookings found' : `No ${filterType} bookings`}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchQuery
+                ? 'Try adjusting your search criteria'
+                : filterType === 'active'
+                ? 'Create your first booking to get started'
+                : 'No past bookings to display'}
+            </p>
+            {canManageBookings(user) && !searchQuery && filterType === 'active' && (
+              <Button variant="primary" onClick={() => setShowForm(true)}>
+                <Plus size={20} className="mr-2" />
+                New Booking
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredBookings.map((booking) => (
+              <RichBookingCard
                 key={booking.id}
                 booking={booking}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
+                onClick={() => setSelectedBooking(booking)}
+                onEdit={handleCardEdit(booking)}
+                onDelete={handleCardDelete(booking.id)}
               />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Modal
@@ -339,6 +367,14 @@ export function BookingsPage() {
             setDeletingBookingData(null);
           }}
           onConfirm={handleSelectiveDelete}
+        />
+      )}
+
+      {selectedBooking && (
+        <BookingDetailModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onEdit={() => handleEdit(selectedBooking)}
         />
       )}
 
