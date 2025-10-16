@@ -6,6 +6,11 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { Button } from '../components/common/Button';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate, getBookingStatus, getWorkflowProgress } from '../utils/helpers';
+import { FinancialOverviewWidget } from '../components/dashboard/FinancialOverviewWidget';
+import { QuickStatsWidget } from '../components/dashboard/QuickStatsWidget';
+import { RecentActivityWidget } from '../components/dashboard/RecentActivityWidget';
+import { TopClientsWidget } from '../components/dashboard/TopClientsWidget';
+import { StaffPerformanceWidget } from '../components/dashboard/StaffPerformanceWidget';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -206,6 +211,15 @@ export function DashboardPage() {
           </div>
         )}
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2">
+            <FinancialOverviewWidget />
+          </div>
+          <div>
+            <QuickStatsWidget />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card>
             <div className="flex items-center justify-between mb-4">
@@ -269,6 +283,15 @@ export function DashboardPage() {
               )}
             </div>
           </Card>
+        </div>
+
+        <div className="mb-8">
+          <RecentActivityWidget />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <TopClientsWidget />
+          <StaffPerformanceWidget />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

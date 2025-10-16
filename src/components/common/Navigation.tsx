@@ -20,8 +20,6 @@ export function Navigation() {
           { path: '/tracking', label: 'Event Tracking', icon: Clipboard },
           { path: '/staff', label: 'Staff', icon: Users },
           { path: '/calendar', label: 'Calendar', icon: Calendar },
-          { path: '/staff-payments', label: 'Staff Payments', icon: DollarSign },
-          { path: '/client-payments', label: 'Client Payments', icon: UserCircle },
         ];
       case 'manager':
         return [
@@ -30,7 +28,6 @@ export function Navigation() {
           { path: '/tracking', label: 'Event Tracking', icon: Clipboard },
           { path: '/staff', label: 'Staff', icon: Users },
           { path: '/calendar', label: 'Calendar', icon: Calendar },
-          { path: '/my-payments', label: 'My Payments', icon: DollarSign },
         ];
       case 'staff':
         return [
