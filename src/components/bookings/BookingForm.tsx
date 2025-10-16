@@ -278,6 +278,15 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
         if (bookingError) throw bookingError;
         bookingId = newBooking.id;
+
+        await supabase.from('workflows').insert({
+          booking_id: bookingId,
+          event_id: null,
+          still_workflow: {},
+          reel_workflow: {},
+          video_workflow: {},
+          portrait_workflow: {}
+        });
       } else if (booking) {
         await supabase
           .from('bookings')

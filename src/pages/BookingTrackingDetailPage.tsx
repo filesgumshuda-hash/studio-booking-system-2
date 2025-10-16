@@ -33,7 +33,7 @@ export function BookingTrackingDetailPage() {
   }, [events, booking]);
 
   const bookingWorkflow = useMemo(() => {
-    return workflows.find(w => w.booking_id === bookingId);
+    return workflows.find(w => w.booking_id === bookingId && w.event_id === null);
   }, [workflows, bookingId]);
 
   React.useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Workflow, useAppData } from '../../context/AppContext';
 import { WorkflowStep } from './WorkflowStep';
 import { supabase } from '../../lib/supabase';
@@ -12,6 +12,39 @@ export function BookingWorkflow({ bookingId, workflow }: BookingWorkflowProps) {
   const { refreshData } = useAppData();
   const [activeTab, setActiveTab] = useState<'still' | 'reel' | 'video' | 'portrait'>('still');
   const [notes, setNotes] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    const initializeWorkflow = async () => {
+      if (!workflow && bookingId && !isCreating) {
+        setIsCreating(true);
+        try {
+          const { error } = await supabase
+            .from('workflows')
+            .insert({
+              booking_id: bookingId,
+              event_id: null,
+              still_workflow: {},
+              reel_workflow: {},
+              video_workflow: {},
+              portrait_workflow: {}
+            });
+
+          if (error) {
+            console.error('Error creating workflow:', error);
+          } else {
+            await refreshData();
+          }
+        } catch (error) {
+          console.error('Error initializing workflow:', error);
+        } finally {
+          setIsCreating(false);
+        }
+      }
+    };
+
+    initializeWorkflow();
+  }, [workflow, bookingId, refreshData, isCreating]);
 
   if (!workflow) {
     return (
@@ -21,15 +54,27 @@ export function BookingWorkflow({ bookingId, workflow }: BookingWorkflowProps) {
           Track deliverables for this booking (applies to all events)
         </p>
         <div className="text-center py-8">
-          <div className="text-gray-400 mb-2">
-            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <p className="text-gray-600 font-medium">No workflow initialized yet</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Workflow tracking will appear once the booking is set up
-          </p>
+          {isCreating ? (
+            <>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+              <p className="text-gray-600 font-medium">Initializing workflow...</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Setting up tracking for this booking
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="text-gray-400 mb-2">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <p className="text-gray-600 font-medium">No workflow initialized yet</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Workflow tracking will appear once the booking is set up
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
