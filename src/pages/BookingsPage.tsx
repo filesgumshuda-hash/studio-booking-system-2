@@ -59,30 +59,12 @@ export function BookingsPage() {
     if (filterType === 'active') {
       result = result.filter(booking => {
         const hasUpcomingEvents = booking.events?.some(e => e.event_date >= todayString);
-        const bookingWorkflows = workflows.filter(w => booking.events?.some(e => e.id === w.event_id));
-        const hasActiveWorkflow = bookingWorkflows.some(w => {
-          const allDelivered =
-            w.still_workflow?.deliveredToClient?.completed &&
-            w.reel_workflow?.reelDelivered?.completed &&
-            w.video_workflow?.videoDelivered?.completed &&
-            w.portrait_workflow?.portraitDelivered?.completed;
-          return !allDelivered;
-        });
-        return hasUpcomingEvents || hasActiveWorkflow;
+        return hasUpcomingEvents;
       });
     } else {
       result = result.filter(booking => {
         const allPastEvents = booking.events?.every(e => e.event_date < todayString);
-        const bookingWorkflows = workflows.filter(w => booking.events?.some(e => e.id === w.event_id));
-        const allWorkflowsCompleted = bookingWorkflows.length > 0 && bookingWorkflows.every(w => {
-          const allDelivered =
-            w.still_workflow?.deliveredToClient?.completed ||
-            w.reel_workflow?.reelDelivered?.completed ||
-            w.video_workflow?.videoDelivered?.completed ||
-            w.portrait_workflow?.portraitDelivered?.completed;
-          return allDelivered;
-        });
-        return allPastEvents && allWorkflowsCompleted;
+        return allPastEvents;
       });
     }
 
