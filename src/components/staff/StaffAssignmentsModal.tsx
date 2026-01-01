@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Staff } from '../../context/AppContext';
+import { Staff, useAppData } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 
 interface AssignmentWithEvent {
@@ -23,6 +23,7 @@ type DateFilter = 'next3months' | 'next6months' | 'past3months' | 'past6months' 
 
 export function StaffAssignmentsModal({ staff, onClose }: StaffAssignmentsModalProps) {
   const { user } = useAuth();
+  const { refreshData } = useAppData();
   const [assignments, setAssignments] = useState<AssignmentWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>('next3months');
@@ -118,26 +119,21 @@ export function StaffAssignmentsModal({ staff, onClose }: StaffAssignmentsModalP
 
       case 'all':
       default:
-        return assignments.sort((a, b) =>
-          new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
-        );
+        return assignments.sort((a, b) => a.event_date.localeCompare(b.event_date));
     }
 
     if (!startDate || !endDate) {
-      return assignments.sort((a, b) =>
-        new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
-      );
+      return assignments.sort((a, b) => a.event_date.localeCompare(b.event_date));
     }
 
     return assignments
       .filter(assignment => {
-        const eventDate = new Date(assignment.event_date);
+        const [year, month, day] = assignment.event_date.split('-').map(Number);
+        const eventDate = new Date(year, month - 1, day);
         eventDate.setHours(0, 0, 0, 0);
         return eventDate >= startDate! && eventDate <= endDate!;
       })
-      .sort((a, b) =>
-        new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
-      );
+      .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [assignments, dateFilter]);
 
   const receivedCount = filteredAssignments.filter(a => a.data_received).length;
@@ -165,13 +161,16 @@ export function StaffAssignmentsModal({ staff, onClose }: StaffAssignmentsModalP
             : assignment
         )
       );
+
+      await refreshData();
     } catch (error) {
       console.error('Error updating data received status:', error);
     }
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',

@@ -65,7 +65,8 @@ export function getEventDisplayInfo(event: Event): EventDisplayInfo {
 
   const clientName = event.booking?.client?.name || 'Unknown Client';
 
-  const formattedDate = new Date(event.event_date).toLocaleDateString('en-GB', {
+  const [year, month, day] = event.event_date.split('-').map(Number);
+  const formattedDate = new Date(year, month - 1, day).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

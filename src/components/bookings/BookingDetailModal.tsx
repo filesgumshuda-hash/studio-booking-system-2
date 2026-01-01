@@ -386,9 +386,9 @@ function formatDateRange(events: Event[]): string {
   if (events.length === 0) return 'No events';
   if (events.length === 1) return formatDate(events[0].event_date);
 
-  const dates = events.map(e => new Date(e.event_date)).sort((a, b) => a.getTime() - b.getTime());
-  const first = formatDate(dates[0].toISOString().split('T')[0]);
-  const last = formatDate(dates[dates.length - 1].toISOString().split('T')[0]);
+  const dates = events.map(e => e.event_date).sort();
+  const first = formatDate(dates[0]);
+  const last = formatDate(dates[dates.length - 1]);
 
   if (first === last) return first;
   return `${first} - ${last}`;
