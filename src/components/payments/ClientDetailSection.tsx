@@ -21,7 +21,8 @@ export function ClientDetailSection({
   onAddPayment,
   onDeletePayment,
 }: ClientDetailSectionProps) {
-  const getPaymentMethodLabel = (method: string): string => {
+  const getPaymentMethodLabel = (method: string | null): string => {
+    if (!method) return 'N/A';
     const labels: Record<string, string> = {
       cash: 'Cash',
       upi: 'UPI',

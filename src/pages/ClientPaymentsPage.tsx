@@ -228,7 +228,9 @@ export function ClientPaymentsPage() {
                 </div>
                 <div>
                   <span className="font-medium">Method:</span>{' '}
-                  {deleteConfirmation.payment.payment_method.replace('_', ' ')}
+                  {deleteConfirmation.payment.payment_method
+                    ? deleteConfirmation.payment.payment_method.replace('_', ' ')
+                    : 'N/A'}
                 </div>
                 <div>
                   <span className="font-medium">Status:</span>{' '}
