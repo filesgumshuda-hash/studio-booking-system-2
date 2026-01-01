@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Users, Clipboard, DollarSign, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 import { Card } from '../components/common/Card';
@@ -10,10 +10,12 @@ import { FinancialOverviewWidget } from '../components/dashboard/FinancialOvervi
 import { QuickStatsWidget } from '../components/dashboard/QuickStatsWidget';
 import { RecentActivityWidget } from '../components/dashboard/RecentActivityWidget';
 import { PaymentQuickAccess } from '../components/dashboard/PaymentQuickAccess';
+import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { bookings, events, clients, staff, staffAssignments, workflows, payments } = useAppData();
+  const [showDataModal, setShowDataModal] = useState(false);
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -61,14 +63,22 @@ export function DashboardPage() {
 
     const overdueAmount = overduePayments.reduce((sum, p) => sum + (p.agreed_amount - p.amount_paid), 0);
 
+    const dataNotReceivedCount = staffAssignments.filter(sa => {
+      const event = events.find(e => e.id === sa.event_id);
+      if (!event) return false;
+      const isPastEvent = event.event_date < todayString;
+      return isPastEvent && !(sa as any).data_received;
+    }).length;
+
     return {
       activeBookings: activeBookingsCount,
       eventsThisMonth,
       pendingTasks,
       overduePayments: overduePayments.length,
       overdueAmount,
+      dataNotReceived: dataNotReceivedCount,
     };
-  }, [bookings, events, workflows, payments, todayString]);
+  }, [bookings, events, workflows, payments, staffAssignments, todayString]);
 
   const todaysEvents = useMemo(() => {
     return events
@@ -171,7 +181,7 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        {(conflicts.length > 0 || shortages.length > 0) && (
+        {(conflicts.length > 0 || shortages.length > 0 || stats.dataNotReceived > 0) && (
           <div className="mb-8">
             <Card className="border-l-4 border-red-500">
               <div className="flex items-start gap-4">
@@ -200,6 +210,18 @@ export function DashboardPage() {
                         </div>
                         <Button variant="secondary" size="sm" onClick={() => navigate('/calendar')}>
                           View Calendar
+                        </Button>
+                      </div>
+                    )}
+                    {stats.dataNotReceived > 0 && (
+                      <div className="flex items-center justify-between bg-orange-50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-orange-500"></span>
+                          <span className="font-medium text-gray-900">{stats.dataNotReceived} Data Not Received</span>
+                          <span className="text-gray-600 text-sm">Past events missing staff data</span>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => setShowDataModal(true)}>
+                          View Details
                         </Button>
                       </div>
                     )}
@@ -312,6 +334,8 @@ export function DashboardPage() {
           <RecentActivityWidget />
         </div>
       </div>
+
+      {showDataModal && <DataNotReceivedModal onClose={() => setShowDataModal(false)} />}
     </div>
   );
 }
