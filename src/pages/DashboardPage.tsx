@@ -11,11 +11,13 @@ import { QuickStatsWidget } from '../components/dashboard/QuickStatsWidget';
 import { RecentActivityWidget } from '../components/dashboard/RecentActivityWidget';
 import { PaymentQuickAccess } from '../components/dashboard/PaymentQuickAccess';
 import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
+import { OverduePaymentsModal } from '../components/dashboard/OverduePaymentsModal';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { bookings, events, clients, staff, staffAssignments, workflows, payments } = useAppData();
   const [showDataModal, setShowDataModal] = useState(false);
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -165,7 +167,7 @@ export function DashboardPage() {
             </div>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/payments')}>
+          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => setShowOverdueModal(true)}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium mb-1">Overdue Payments</p>
@@ -336,6 +338,7 @@ export function DashboardPage() {
       </div>
 
       {showDataModal && <DataNotReceivedModal onClose={() => setShowDataModal(false)} />}
+      {showOverdueModal && <OverduePaymentsModal onClose={() => setShowOverdueModal(false)} />}
     </div>
   );
 }
