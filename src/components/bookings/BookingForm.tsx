@@ -44,7 +44,6 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
   const [email, setEmail] = useState('');
   const [alternateContact, setAlternateContact] = useState('');
   const [clientNotes, setClientNotes] = useState('');
-  const [bookingReference, setBookingReference] = useState('');
   const [bookingName, setBookingName] = useState('');
 
   const [originalEventIds, setOriginalEventIds] = useState<string[]>([]);
@@ -243,18 +242,6 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
-  const generateBookingReference = async () => {
-    const year = new Date().getFullYear();
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('id')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    const count = data ? data.length + 1 : 1;
-    return `BK-${year}-${count.toString().padStart(3, '0')}`;
-  };
-
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -347,8 +334,6 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
       let bookingId = booking?.id;
 
       if (!booking) {
-        const finalBookingReference = bookingReference.trim() || await generateBookingReference();
-
         const { data: newBooking, error: bookingError } = await supabase
           .from('bookings')
           .insert({
@@ -619,8 +604,8 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
               <textarea
                 value={clientNotes}
                 onChange={(e) => setClientNotes(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y"
                 placeholder="Any specific notes about this booking..."
               />
             </div>
@@ -709,8 +694,8 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
           <textarea
             value={clientNotes}
             onChange={(e) => setClientNotes(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y"
             placeholder="Any specific notes about the client..."
           />
         </div>
@@ -723,36 +708,20 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Booking Name
-            <span className="text-gray-500 text-xs ml-1">(Optional - e.g., "Priya's Wedding Package")</span>
+            <span className="text-gray-500 text-xs ml-1">(Optional)</span>
           </label>
           <input
             type="text"
             value={bookingName}
             onChange={(e) => setBookingName(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-            placeholder="Leave empty to auto-generate from client name"
+            placeholder="e.g., Priya's Wedding Package"
           />
           <p className="text-xs text-gray-500 mt-1">
-            This name will appear in dropdowns and reports. If left empty, it will show as "ClientName's Booking"
+            Leave empty to auto-generate from client name
           </p>
         </div>
       </div>
-
-      {!booking && (
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Booking Reference (Optional)
-          </label>
-          <input
-            type="text"
-            value={bookingReference}
-            onChange={(e) => setBookingReference(e.target.value)}
-            placeholder="Auto-generated if empty (e.g., BK-2025-001)"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-          />
-          <p className="text-xs text-gray-500 mt-1">Leave empty to auto-generate</p>
-        </div>
-      )}
 
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -884,7 +853,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
                         value={event.notes}
                         onChange={(e) => updateEvent(idx, 'notes', e.target.value)}
                         rows={2}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y"
                         placeholder="Venue address, guest count, package details, special requirements..."
                       />
                     </div>
