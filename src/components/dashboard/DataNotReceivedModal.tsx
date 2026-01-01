@@ -25,6 +25,8 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
   const { refreshData } = useAppData();
   const [assignments, setAssignments] = useState<AssignmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchPastAssignments();
@@ -91,6 +93,7 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
         .sort((a, b) => b.event_date.localeCompare(a.event_date));
 
       setAssignments(formattedAssignments);
+      setPendingChanges({});
     } catch (error) {
       console.error('Error fetching past assignments:', error);
     } finally {
@@ -98,31 +101,60 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
     }
   };
 
-  const handleToggleDataReceived = async (assignmentId: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
+  const handleToggleChange = (assignmentId: string, currentStatus: boolean) => {
+    setPendingChanges(prev => ({
+      ...prev,
+      [assignmentId]: !currentStatus
+    }));
+  };
 
+  const getCurrentStatus = (assignmentId: string, originalStatus: boolean) => {
+    return pendingChanges.hasOwnProperty(assignmentId)
+      ? pendingChanges[assignmentId]
+      : originalStatus;
+  };
+
+  const handleSave = async () => {
+    if (Object.keys(pendingChanges).length === 0) return;
+
+    setSaving(true);
     try {
-      const { error } = await supabase
-        .from('staff_assignments')
-        .update({
-          data_received: newStatus,
-          data_received_at: newStatus ? new Date().toISOString() : null,
-          data_received_by: newStatus ? user?.id : null
-        })
-        .eq('id', assignmentId);
+      const updatePromises = Object.entries(pendingChanges).map(([assignmentId, newStatus]) => {
+        return supabase
+          .from('staff_assignments')
+          .update({
+            data_received: newStatus,
+            data_received_at: newStatus ? new Date().toISOString() : null,
+            data_received_by: newStatus ? user?.id : null
+          })
+          .eq('id', assignmentId);
+      });
 
-      if (error) throw error;
+      const results = await Promise.all(updatePromises);
+      const hasErrors = results.some(result => result.error);
 
-      setAssignments(prev =>
-        prev.filter(assignment =>
-          assignment.assignment_id !== assignmentId
-        )
-      );
+      if (hasErrors) {
+        throw new Error('Some updates failed');
+      }
 
       await refreshData();
+      onClose();
     } catch (error) {
-      console.error('Error updating data received status:', error);
+      console.error('Error saving changes:', error);
+      alert('Error saving changes. Please try again.');
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (Object.keys(pendingChanges).length > 0) {
+      const confirmDiscard = window.confirm(
+        `You have ${Object.keys(pendingChanges).length} unsaved change(s). Are you sure you want to discard them?`
+      );
+      if (!confirmDiscard) return;
+    }
+    onClose();
   };
 
   const formatDate = (dateString: string) => {
@@ -137,9 +169,11 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      handleCancel();
     }
   };
+
+  const hasChanges = Object.keys(pendingChanges).length > 0;
 
   return (
     <div
@@ -150,18 +184,25 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
         className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between bg-red-50">
+        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between bg-orange-50">
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
               Data Not Received - Past Events
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {assignments.length} past event{assignments.length !== 1 ? 's have' : ' has'} not received data from staff
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-sm text-gray-600">
+                {assignments.length} past event{assignments.length !== 1 ? 's have' : ' has'} not received data from staff
+              </p>
+              {hasChanges && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                  {Object.keys(pendingChanges).length} unsaved change{Object.keys(pendingChanges).length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
             className="text-gray-500 hover:text-gray-700 transition-colors p-2"
           >
             <X size={24} />
@@ -189,51 +230,68 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Event</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Staff Member</th>
-                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">Mark as Received</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">Data Received</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {assignments.map((assignment) => (
-                  <tr key={assignment.assignment_id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {assignment.booking_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {assignment.event_name}
-                      <div className="text-xs text-gray-500">{assignment.client_name || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {formatDate(assignment.event_date)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {assignment.staff_name}
-                      <div className="text-xs text-gray-500 capitalize">{assignment.staff_role.replace('_', ' ')}</div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() =>
-                          handleToggleDataReceived(
-                            assignment.assignment_id,
-                            assignment.data_received
-                          )
-                        }
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors text-sm font-medium"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={assignment.data_received}
-                          onChange={() => {}}
-                          className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-500"
-                        />
-                        Mark Received
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {assignments.map((assignment) => {
+                  const currentStatus = getCurrentStatus(assignment.assignment_id, assignment.data_received);
+
+                  return (
+                    <tr key={assignment.assignment_id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {assignment.booking_name || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {assignment.event_name}
+                        <div className="text-xs text-gray-500">{assignment.client_name || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {formatDate(assignment.event_date)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {assignment.staff_name}
+                        <div className="text-xs text-gray-500 capitalize">{assignment.staff_role.replace('_', ' ')}</div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentStatus}
+                            onChange={() => handleToggleChange(assignment.assignment_id, assignment.data_received)}
+                            className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-500 cursor-pointer"
+                          />
+                          <span className="text-sm font-medium text-gray-700">
+                            {currentStatus ? '✅ Received' : '⏳ Pending'}
+                          </span>
+                        </label>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
+
+        {!loading && assignments.length > 0 && (
+          <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
+            <button
+              onClick={handleCancel}
+              disabled={saving}
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges || saving}
+              className="px-5 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving ? 'Saving...' : hasChanges ? `Save Changes (${Object.keys(pendingChanges).length})` : 'Save Changes'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
