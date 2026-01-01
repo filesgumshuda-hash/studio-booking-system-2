@@ -38,6 +38,8 @@ export function TemporaryStaffModal({ onAdd, onClose }: TemporaryStaffModalProps
       role,
       contactNumber: contactNumber.trim(),
     });
+
+    onClose();
   };
 
   return (
@@ -45,7 +47,10 @@ export function TemporaryStaffModal({ onAdd, onClose }: TemporaryStaffModalProps
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-xl font-bold text-gray-900">Add Temporary Staff</h2>
           <p className="text-sm text-gray-600 mt-1">

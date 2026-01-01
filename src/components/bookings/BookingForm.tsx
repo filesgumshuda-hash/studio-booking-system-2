@@ -488,7 +488,8 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
   const sortedStaff = getSortedStaff(activeStaff);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-lg font-semibold mb-4">Client Information</h3>
 
@@ -1005,13 +1006,14 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
           {loading ? 'Saving...' : booking ? 'Update Booking' : 'Create Booking'}
         </Button>
       </div>
-
-      {showTempStaffModal !== null && (
-        <TemporaryStaffModal
-          onAdd={(staffData) => handleAddTemporaryStaff(showTempStaffModal, staffData)}
-          onClose={() => setShowTempStaffModal(null)}
-        />
-      )}
     </form>
+
+    {showTempStaffModal !== null && (
+      <TemporaryStaffModal
+        onAdd={(staffData) => handleAddTemporaryStaff(showTempStaffModal, staffData)}
+        onClose={() => setShowTempStaffModal(null)}
+      />
+    )}
+    </>
   );
 }
