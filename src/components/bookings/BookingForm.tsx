@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, UserPlus, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, UserPlus, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useAppData, Booking } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -53,6 +53,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     key: 'name' | 'role';
     direction: 'asc' | 'desc';
   }>({ key: 'role', direction: 'asc' });
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set([0]));
 
   const [events, setEvents] = useState<EventFormData[]>([
     {
@@ -108,7 +109,24 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     }
   }, [booking]);
 
+  const toggleEventExpansion = (index: number) => {
+    const newExpanded = new Set(expandedEvents);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedEvents(newExpanded);
+  };
+
+  const formatEventDate = (dateString: string) => {
+    if (!dateString) return 'No date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   const addEvent = () => {
+    const newIndex = events.length;
     setEvents([
       ...events,
       {
@@ -124,6 +142,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
         assigned_staff: [],
       },
     ]);
+    setExpandedEvents(new Set(expandedEvents).add(newIndex));
   };
 
   const removeEvent = (index: number) => {
@@ -751,241 +770,264 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
           </p>
         )}
 
-        <div className="space-y-6">
-          {events.map((event, idx) => (
-            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold">
-                  Event {idx + 1} {idx === 0 && '(Primary)'}
-                </h4>
-                {events.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeEvent(idx)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-              </div>
+        <div className="space-y-4">
+          {events.map((event, idx) => {
+            const isExpanded = expandedEvents.has(idx);
+            const eventSummary = event.event_name || 'New Event';
+            const eventDate = formatEventDate(event.event_date);
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Event Name <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={event.event_name}
-                    onChange={(e) => updateEvent(idx, 'event_name', e.target.value)}
-                    placeholder="e.g., Wedding, Pre-wedding, Haldi"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-                      errors[`event_${idx}_name`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors[`event_${idx}_name`] && (
-                    <p className="text-red-600 text-sm mt-1">{errors[`event_${idx}_name`]}</p>
+            return (
+              <div key={idx} className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
+                <div
+                  className="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                  onClick={() => toggleEventExpansion(idx)}
+                >
+                  {isExpanded ? (
+                    <ChevronDown size={18} className="text-gray-600 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight size={18} className="text-gray-600 flex-shrink-0" />
                   )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Event Date <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={event.event_date}
-                    onChange={(e) => updateEvent(idx, 'event_date', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-                      errors[`event_${idx}_date`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors[`event_${idx}_date`] && (
-                    <p className="text-red-600 text-sm mt-1">{errors[`event_${idx}_date`]}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Time Slot <span className="text-red-600">*</span>
-                  </label>
-                  <select
-                    value={event.time_slot}
-                    onChange={(e) => updateEvent(idx, 'time_slot', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                  >
-                    <option value="morning">Morning</option>
-                    <option value="afternoon">Afternoon</option>
-                    <option value="evening">Evening</option>
-                    <option value="fullDay">Full Day</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Venue <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={event.venue}
-                    onChange={(e) => updateEvent(idx, 'venue', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-                      errors[`event_${idx}_venue`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors[`event_${idx}_venue`] && (
-                    <p className="text-red-600 text-sm mt-1">{errors[`event_${idx}_venue`]}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Event Notes</label>
-                <textarea
-                  value={event.notes}
-                  onChange={(e) => updateEvent(idx, 'notes', e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                  placeholder="Venue address, guest count, package details, special requirements..."
-                />
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Team Size Required</label>
-                <div className="grid grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Photographers</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={event.photographers_required}
-                      onChange={(e) => updateEvent(idx, 'photographers_required', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-gray-900">
+                      Event {idx + 1}{idx === 0 && ' (Primary)'}: {eventSummary} - {eventDate}
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Videographers</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={event.videographers_required}
-                      onChange={(e) => updateEvent(idx, 'videographers_required', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Drone Operators</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={event.drone_operators_required}
-                      onChange={(e) => updateEvent(idx, 'drone_operators_required', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Editors</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={event.editors_required}
-                      onChange={(e) => updateEvent(idx, 'editors_required', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    {events.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeEvent(idx)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="Delete event"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Assigned Staff</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowTempStaffModal(idx)}
-                    className="text-sm text-gray-900 hover:text-gray-700 flex items-center gap-1 font-medium"
-                  >
-                    <UserPlus size={16} />
-                    Add Temporary Staff
-                  </button>
-                </div>
-                <div className="border border-gray-300 rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th
-                          className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                          onClick={() => handleSort('name')}
+                {isExpanded && (
+                  <div className="p-4 border-t border-gray-200 bg-white">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Event Name <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={event.event_name}
+                          onChange={(e) => updateEvent(idx, 'event_name', e.target.value)}
+                          placeholder="e.g., Wedding, Pre-wedding, Haldi"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                            errors[`event_${idx}_name`] ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors[`event_${idx}_name`] && (
+                          <p className="text-red-600 text-sm mt-1">{errors[`event_${idx}_name`]}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Event Date <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={event.event_date}
+                          onChange={(e) => updateEvent(idx, 'event_date', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                            errors[`event_${idx}_date`] ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors[`event_${idx}_date`] && (
+                          <p className="text-red-600 text-sm mt-1">{errors[`event_${idx}_date`]}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Time Slot <span className="text-red-600">*</span>
+                        </label>
+                        <select
+                          value={event.time_slot}
+                          onChange={(e) => updateEvent(idx, 'time_slot', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                         >
-                          <div className="flex items-center gap-1">
-                            Staff Member
-                            <ArrowUpDown size={14} className="text-gray-500" />
-                            {sortConfig.key === 'name' && (
-                              <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                            )}
-                          </div>
-                        </th>
-                        <th
-                          className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                          onClick={() => handleSort('role')}
+                          <option value="morning">Morning</option>
+                          <option value="afternoon">Afternoon</option>
+                          <option value="evening">Evening</option>
+                          <option value="fullDay">Full Day</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Venue <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={event.venue}
+                          onChange={(e) => updateEvent(idx, 'venue', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                            errors[`event_${idx}_venue`] ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors[`event_${idx}_venue`] && (
+                          <p className="text-red-600 text-sm mt-1">{errors[`event_${idx}_venue`]}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Event Notes</label>
+                      <textarea
+                        value={event.notes}
+                        onChange={(e) => updateEvent(idx, 'notes', e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        placeholder="Venue address, guest count, package details, special requirements..."
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Team Size Required</label>
+                      <div className="grid grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Photographers</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={event.photographers_required}
+                            onChange={(e) => updateEvent(idx, 'photographers_required', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Videographers</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={event.videographers_required}
+                            onChange={(e) => updateEvent(idx, 'videographers_required', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Drone Operators</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={event.drone_operators_required}
+                            onChange={(e) => updateEvent(idx, 'drone_operators_required', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Editors</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={event.editors_required}
+                            onChange={(e) => updateEvent(idx, 'editors_required', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">Assigned Staff</label>
+                        <button
+                          type="button"
+                          onClick={() => setShowTempStaffModal(idx)}
+                          className="text-sm text-gray-900 hover:text-gray-700 flex items-center gap-1 font-medium"
                         >
-                          <div className="flex items-center gap-1">
-                            Role
-                            <ArrowUpDown size={14} className="text-gray-500" />
-                            {sortConfig.key === 'role' && (
-                              <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                          <UserPlus size={16} />
+                          Add Temporary Staff
+                        </button>
+                      </div>
+                      <div className="border border-gray-300 rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th
+                                className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                                onClick={() => handleSort('name')}
+                              >
+                                <div className="flex items-center gap-1">
+                                  Staff Member
+                                  <ArrowUpDown size={14} className="text-gray-500" />
+                                  {sortConfig.key === 'name' && (
+                                    <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                  )}
+                                </div>
+                              </th>
+                              <th
+                                className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                                onClick={() => handleSort('role')}
+                              >
+                                <div className="flex items-center gap-1">
+                                  Role
+                                  <ArrowUpDown size={14} className="text-gray-500" />
+                                  {sortConfig.key === 'role' && (
+                                    <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                  )}
+                                </div>
+                              </th>
+                              <th className="px-4 py-2 text-center text-sm font-medium text-gray-700">Assign</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {sortedStaff.length === 0 ? (
+                              <tr>
+                                <td colSpan={3} className="px-4 py-3 text-center text-gray-500">
+                                  No staff available
+                                </td>
+                              </tr>
+                            ) : (
+                              sortedStaff.map((staffMember) => (
+                                <tr key={staffMember.id}>
+                                  <td className="px-4 py-2 text-sm text-gray-900">
+                                    <div className="flex items-center gap-2">
+                                      {staffMember.name}
+                                      {staffMember.status === 'temporary' && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                          Temp
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-600 capitalize">{staffMember.role.replace('_', ' ')}</td>
+                                  <td className="px-4 py-2 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={event.assigned_staff.includes(staffMember.id)}
+                                      onChange={() => toggleStaffAssignment(idx, staffMember.id)}
+                                      className="w-4 h-4 text-gray-900 focus:ring-gray-900 rounded"
+                                    />
+                                  </td>
+                                </tr>
+                              ))
                             )}
-                          </div>
-                        </th>
-                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700">Assign</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {sortedStaff.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="px-4 py-3 text-center text-gray-500">
-                            No staff available
-                          </td>
-                        </tr>
-                      ) : (
-                        sortedStaff.map((staffMember) => (
-                          <tr key={staffMember.id}>
-                            <td className="px-4 py-2 text-sm text-gray-900">
-                              <div className="flex items-center gap-2">
-                                {staffMember.name}
-                                {staffMember.status === 'temporary' && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                    Temp
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-600 capitalize">{staffMember.role.replace('_', ' ')}</td>
-                            <td className="px-4 py-2 text-center">
-                              <input
-                                type="checkbox"
-                                checked={event.assigned_staff.includes(staffMember.id)}
-                                onChange={() => toggleStaffAssignment(idx, staffMember.id)}
-                                className="w-4 h-4 text-gray-900 focus:ring-gray-900 rounded"
-                              />
-                            </td>
-                          </tr>
-                        ))
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-sm text-green-600 mt-2">
+                        {event.assigned_staff.length} staff member(s) assigned
+                      </p>
+                      {event.assigned_staff.length < (event.photographers_required + event.videographers_required + event.drone_operators_required + event.editors_required) && (
+                        <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
+                          <AlertCircle size={14} />
+                          Warning: Assigned staff count is less than required team size
+                        </p>
                       )}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-sm text-green-600 mt-2">
-                  {event.assigned_staff.length} staff member(s) assigned
-                </p>
-                {event.assigned_staff.length < (event.photographers_required + event.videographers_required + event.drone_operators_required + event.editors_required) && (
-                  <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    Warning: Assigned staff count is less than required team size
-                  </p>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
