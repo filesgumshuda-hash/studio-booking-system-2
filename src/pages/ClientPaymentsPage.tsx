@@ -133,6 +133,7 @@ export function ClientPaymentsPage() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Client Payments</h1>
           <Button
+            type="button"
             onClick={() => {
               setShowAddPaymentModal(true);
             }}

@@ -39,7 +39,7 @@ export function ClientDetailSection({
         <h2 className="text-xl font-bold text-gray-900">
           Selected Client: <span className="text-gray-700">{client.name}</span>
         </h2>
-        <Button onClick={onAddPayment} className="bg-green-600 hover:bg-green-700">
+        <Button type="button" onClick={onAddPayment} className="bg-green-600 hover:bg-green-700">
           + Add Payment
         </Button>
       </div>
