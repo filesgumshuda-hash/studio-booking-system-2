@@ -53,6 +53,7 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     direction: 'asc' | 'desc';
   }>({ key: 'role', direction: 'asc' });
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set([0]));
+  const [tempStaffAddedInSession, setTempStaffAddedInSession] = useState<Set<string>>(new Set());
 
   const [events, setEvents] = useState<EventFormData[]>([
     {
@@ -185,6 +186,8 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
       if (error) throw error;
 
       await refreshData();
+
+      setTempStaffAddedInSession(prev => new Set(prev).add(newStaff.id));
 
       const newEvents = [...events];
       newEvents[eventIndex].assigned_staff = [...newEvents[eventIndex].assigned_staff, newStaff.id];
@@ -488,7 +491,22 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     }
   };
 
-  const activeStaff = staff.filter(s => s.status === 'active' || s.status === 'temporary');
+  const activeStaff = staff.filter(s => {
+    if (s.status === 'active') return true;
+
+    if (s.status === 'temporary') {
+      if (booking) {
+        const isAssignedToThisBooking = booking.events?.some(event =>
+          event.staff_assignments?.some(sa => sa.staff_id === s.id)
+        );
+        return isAssignedToThisBooking;
+      } else {
+        return tempStaffAddedInSession.has(s.id);
+      }
+    }
+
+    return false;
+  });
   const sortedStaff = getSortedStaff(activeStaff);
 
   return (
