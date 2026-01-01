@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, UserPlus, ArrowUpDown } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useAppData, Booking } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { validatePhoneNumber, validateEmail, ValidationError } from '../../utils/validation';
 import { canManageBookings } from '../../utils/accessControl';
 import { createInitialWorkflowStructure } from '../tracking/BookingWorkflow';
+import { TemporaryStaffModal } from './TemporaryStaffModal';
 
 interface EventFormData {
   id?: string;
@@ -47,6 +48,11 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
   const [bookingName, setBookingName] = useState('');
 
   const [originalEventIds, setOriginalEventIds] = useState<string[]>([]);
+  const [showTempStaffModal, setShowTempStaffModal] = useState<number | null>(null);
+  const [sortConfig, setSortConfig] = useState<{
+    key: 'name' | 'role';
+    direction: 'asc' | 'desc';
+  }>({ key: 'role', direction: 'asc' });
 
   const [events, setEvents] = useState<EventFormData[]>([
     {
@@ -143,6 +149,69 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
       newEvents[eventIndex].assigned_staff = [...assignedStaff, staffId];
     }
     setEvents(newEvents);
+  };
+
+  const handleAddTemporaryStaff = async (eventIndex: number, staffData: { name: string; role: string; contactNumber: string }) => {
+    try {
+      const { data: newStaff, error } = await supabase
+        .from('staff')
+        .insert({
+          name: staffData.name,
+          role: staffData.role,
+          contact_number: staffData.contactNumber || null,
+          status: 'temporary',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await refreshData();
+
+      const newEvents = [...events];
+      newEvents[eventIndex].assigned_staff = [...newEvents[eventIndex].assigned_staff, newStaff.id];
+      setEvents(newEvents);
+
+      setShowTempStaffModal(null);
+    } catch (error) {
+      console.error('Error adding temporary staff:', error);
+      alert('Failed to add temporary staff. Please try again.');
+    }
+  };
+
+  const handleSort = (key: 'name' | 'role') => {
+    setSortConfig({
+      key,
+      direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc',
+    });
+  };
+
+  const getSortedStaff = (staffList: typeof staff) => {
+    return [...staffList].sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (sortConfig.key === 'role') {
+        const roleOrder = ['photographer', 'videographer', 'drone_operator', 'editor'];
+        const aIndex = roleOrder.indexOf(a.role);
+        const bIndex = roleOrder.indexOf(b.role);
+
+        if (aIndex !== bIndex) {
+          return sortConfig.direction === 'asc' ? aIndex - bIndex : bIndex - aIndex;
+        }
+
+        aVal = a.name;
+        bVal = b.name;
+      }
+
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortConfig.direction === 'asc'
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      return 0;
+    });
   };
 
   const filteredClients = clients.filter((c) => {
@@ -415,7 +484,8 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     }
   };
 
-  const activeStaff = staff.filter(s => s.status === 'active');
+  const activeStaff = staff.filter(s => s.status === 'active' || s.status === 'temporary');
+  const sortedStaff = getSortedStaff(activeStaff);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -826,27 +896,68 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
               </div>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Staff</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Assigned Staff</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowTempStaffModal(idx)}
+                    className="text-sm text-gray-900 hover:text-gray-700 flex items-center gap-1 font-medium"
+                  >
+                    <UserPlus size={16} />
+                    Add Temporary Staff
+                  </button>
+                </div>
                 <div className="border border-gray-300 rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Staff Member</th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Role</th>
+                        <th
+                          className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                          onClick={() => handleSort('name')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Staff Member
+                            <ArrowUpDown size={14} className="text-gray-500" />
+                            {sortConfig.key === 'name' && (
+                              <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                          onClick={() => handleSort('role')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Role
+                            <ArrowUpDown size={14} className="text-gray-500" />
+                            {sortConfig.key === 'role' && (
+                              <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th className="px-4 py-2 text-center text-sm font-medium text-gray-700">Assign</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {activeStaff.length === 0 ? (
+                      {sortedStaff.length === 0 ? (
                         <tr>
                           <td colSpan={3} className="px-4 py-3 text-center text-gray-500">
                             No staff available
                           </td>
                         </tr>
                       ) : (
-                        activeStaff.map((staffMember) => (
+                        sortedStaff.map((staffMember) => (
                           <tr key={staffMember.id}>
-                            <td className="px-4 py-2 text-sm text-gray-900">{staffMember.name}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              <div className="flex items-center gap-2">
+                                {staffMember.name}
+                                {staffMember.status === 'temporary' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                    Temp
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-4 py-2 text-sm text-gray-600 capitalize">{staffMember.role.replace('_', ' ')}</td>
                             <td className="px-4 py-2 text-center">
                               <input
@@ -894,6 +1005,13 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
           {loading ? 'Saving...' : booking ? 'Update Booking' : 'Create Booking'}
         </Button>
       </div>
+
+      {showTempStaffModal !== null && (
+        <TemporaryStaffModal
+          onAdd={(staffData) => handleAddTemporaryStaff(showTempStaffModal, staffData)}
+          onClose={() => setShowTempStaffModal(null)}
+        />
+      )}
     </form>
   );
 }
