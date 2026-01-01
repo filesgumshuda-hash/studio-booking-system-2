@@ -3,7 +3,7 @@ import { ClientPaymentRecord, Client, Booking, Event } from '../context/AppConte
 export interface ClientSummary {
   clientId: string;
   clientName: string;
-  packageAmount: number;
+  totalAgreed: number;
   totalReceived: number;
   outstanding: number;
 }
@@ -13,7 +13,7 @@ export interface BookingAmount {
   bookingName: string;
   eventCount: number;
   firstEventDate: string;
-  packageAmount: number;
+  agreed: number;
   received: number;
   due: number;
 }
@@ -59,22 +59,20 @@ export function calculateClientSummary(
   bookings: Booking[],
   payments: ClientPaymentRecord[]
 ): ClientSummary {
-  const clientBookings = bookings.filter(b => b.client_id === clientId);
-
-  const packageAmount = clientBookings.reduce((sum, booking) => {
-    return sum + Number(booking.package_amount || 0);
-  }, 0);
+  const totalAgreed = payments
+    .filter(p => p.client_id === clientId && p.payment_status === 'agreed')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
 
   const totalReceived = payments
     .filter(p => p.client_id === clientId && p.payment_status === 'received')
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
-  const outstanding = packageAmount - totalReceived;
+  const outstanding = totalAgreed - totalReceived;
 
   return {
     clientId,
     clientName,
-    packageAmount,
+    totalAgreed,
     totalReceived,
     outstanding,
   };
@@ -90,15 +88,15 @@ export function getTop10Clients(
       return bookings.some(b => b.client_id === c.id);
     })
     .map((c) => calculateClientSummary(c.id, c.name, bookings, payments))
-    .filter((summary) => summary.packageAmount > 0 || summary.totalReceived > 0);
+    .filter((summary) => summary.totalAgreed > 0 || summary.totalReceived > 0);
 
   return clientsWithPayments
     .sort((a, b) => {
       if (b.outstanding !== a.outstanding) {
         return b.outstanding - a.outstanding;
       }
-      if (b.packageAmount !== a.packageAmount) {
-        return b.packageAmount - a.packageAmount;
+      if (b.totalAgreed !== a.totalAgreed) {
+        return b.totalAgreed - a.totalAgreed;
       }
       return a.clientName.localeCompare(b.clientName);
     })
@@ -122,20 +120,22 @@ export function getClientBookings(
     );
     const firstEvent = sortedEvents[0];
 
-    const packageAmount = Number(booking.package_amount || 0);
+    const agreed = payments
+      .filter((p) => p.booking_id === booking.id && p.payment_status === 'agreed')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
 
     const received = payments
       .filter((p) => p.booking_id === booking.id && p.payment_status === 'received')
       .reduce((sum, p) => sum + Number(p.amount), 0);
 
-    const due = packageAmount - received;
+    const due = agreed - received;
 
     return {
       bookingId: booking.id,
       bookingName: booking.booking_name || `Booking ${booking.id.slice(0, 8)}`,
       eventCount,
       firstEventDate: firstEvent?.event_date || booking.created_at,
-      packageAmount,
+      agreed,
       received,
       due,
     };
@@ -187,9 +187,9 @@ export function formatDate(dateString: string): string {
 export function getOutstandingColorClass(outstanding: number): string {
   if (outstanding <= 0) {
     return 'text-green-600';
-  } else if (outstanding > 50000) {
-    return 'text-red-600';
-  } else {
+  } else if (outstanding > 0 && outstanding <= 50000) {
     return 'text-orange-600';
+  } else {
+    return 'text-red-600';
   }
 }

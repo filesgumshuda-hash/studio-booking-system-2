@@ -47,8 +47,8 @@ export function ClientDetailSection({
         <h3 className="text-sm font-medium text-gray-600 mb-3">Summary:</h3>
         <div className="space-y-2">
           <div>
-            <span className="text-gray-600">Package Amount: </span>
-            <span className="text-lg font-semibold text-gray-600">{formatCurrency(summary.packageAmount)}</span>
+            <span className="text-gray-600">Total Agreed: </span>
+            <span className="text-lg font-semibold text-gray-600">{formatCurrency(summary.totalAgreed)}</span>
           </div>
           <div>
             <span className="text-gray-600">Received: </span>
@@ -82,7 +82,7 @@ export function ClientDetailSection({
                     First Event
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
-                    Package
+                    Agreed
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
                     Received
@@ -101,7 +101,7 @@ export function ClientDetailSection({
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{formatDate(ba.firstEventDate)}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-right text-gray-600">
-                      {formatCurrency(ba.packageAmount)}
+                      {formatCurrency(ba.agreed)}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-right text-green-600">
                       {formatCurrency(ba.received)}

@@ -15,9 +15,9 @@ export function ClientSummaryCard({ summary, onClick }: ClientSummaryCardProps) 
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Package Amount:</span>
+          <span className="text-sm text-gray-600">Total Agreed:</span>
           <span className="text-base font-semibold text-gray-600">
-            {formatCurrency(summary.packageAmount)}
+            {formatCurrency(summary.totalAgreed)}
           </span>
         </div>
 
