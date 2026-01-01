@@ -186,12 +186,6 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     events.forEach((event, idx) => {
       if (!event.event_name.trim()) newErrors[`event_${idx}_name`] = 'Event name is required';
       if (!event.event_date) newErrors[`event_${idx}_date`] = 'Event date is required';
-      else {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-        if (!booking && event.event_date < todayString) newErrors[`event_${idx}_date`] = 'Event date cannot be in the past';
-      }
       if (!event.venue.trim()) newErrors[`event_${idx}_venue`] = 'Venue is required';
     });
 
