@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Edit, Key, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { CreateLoginModal } from './CreateLoginModal';
+import { StaffAssignmentsModal } from './StaffAssignmentsModal';
 import { supabase } from '../../lib/supabase';
 import { Staff, StaffAssignment } from '../../context/AppContext';
 
@@ -43,6 +44,8 @@ export function ConsolidatedStaffTable({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateLogin, setShowCreateLogin] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [showAssignmentsModal, setShowAssignmentsModal] = useState(false);
+  const [assignmentsStaff, setAssignmentsStaff] = useState<Staff | null>(null);
   const { showToast, ToastComponent } = useToast();
 
   useEffect(() => {
@@ -223,6 +226,11 @@ export function ConsolidatedStaffTable({
     } catch (error: any) {
       showToast(`Failed to reset password: ${error.message}`, 'error');
     }
+  };
+
+  const handleViewAssignments = (staffMember: Staff) => {
+    setAssignmentsStaff(staffMember);
+    setShowAssignmentsModal(true);
   };
 
   const getRoleBadge = (role: 'admin' | 'manager' | 'staff' | null) => {
@@ -445,7 +453,12 @@ export function ConsolidatedStaffTable({
                               <span className="text-lg">📅</span> Assignments
                             </h3>
                             <div className="text-sm text-gray-700">
-                              <p className="mb-2">Assigned to <span className="font-semibold">{staffMember.assignmentCount}</span> event{staffMember.assignmentCount !== 1 ? 's' : ''}</p>
+                              <button
+                                onClick={() => handleViewAssignments(staffMember)}
+                                className="text-blue-600 hover:text-blue-800 underline transition-colors"
+                              >
+                                Assigned to <span className="font-semibold">{staffMember.assignmentCount}</span> event{staffMember.assignmentCount !== 1 ? 's' : ''}
+                              </button>
                             </div>
                           </div>
 
@@ -505,6 +518,16 @@ export function ConsolidatedStaffTable({
             setSelectedStaff(null);
           }}
           onSuccess={handleLoginCreated}
+        />
+      )}
+
+      {showAssignmentsModal && assignmentsStaff && (
+        <StaffAssignmentsModal
+          staff={assignmentsStaff}
+          onClose={() => {
+            setShowAssignmentsModal(false);
+            setAssignmentsStaff(null);
+          }}
         />
       )}
     </div>
