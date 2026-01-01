@@ -5,11 +5,12 @@ import { Button } from '../common/Button';
 interface TemporaryStaffModalProps {
   onAdd: (staff: { name: string; role: string; contactNumber: string }) => void;
   onClose: () => void;
+  defaultRole?: 'photographer' | 'videographer' | 'drone_operator' | 'editor';
 }
 
-export function TemporaryStaffModal({ onAdd, onClose }: TemporaryStaffModalProps) {
+export function TemporaryStaffModal({ onAdd, onClose, defaultRole }: TemporaryStaffModalProps) {
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'photographer' | 'videographer' | 'drone_operator' | 'editor'>('photographer');
+  const [role, setRole] = useState<'photographer' | 'videographer' | 'drone_operator' | 'editor'>(defaultRole || 'photographer');
   const [contactNumber, setContactNumber] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 

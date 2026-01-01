@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, UserPlus, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, UserPlus, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useAppData, Booking } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -48,12 +48,9 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
   const [originalEventIds, setOriginalEventIds] = useState<string[]>([]);
   const [showTempStaffModal, setShowTempStaffModal] = useState<number | null>(null);
-  const [sortConfig, setSortConfig] = useState<{
-    key: 'name' | 'role';
-    direction: 'asc' | 'desc';
-  }>({ key: 'role', direction: 'asc' });
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set([0]));
   const [tempStaffAddedInSession, setTempStaffAddedInSession] = useState<Set<string>>(new Set());
+  const [tempStaffRole, setTempStaffRole] = useState<string | null>(null);
 
   const [events, setEvents] = useState<EventFormData[]>([
     {
@@ -170,13 +167,37 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     setEvents(newEvents);
   };
 
+  const addStaffToEvent = (eventIndex: number, staffId: string) => {
+    const newEvents = [...events];
+    if (!newEvents[eventIndex].assigned_staff.includes(staffId)) {
+      newEvents[eventIndex].assigned_staff = [...newEvents[eventIndex].assigned_staff, staffId];
+      setEvents(newEvents);
+    }
+  };
+
+  const removeStaffFromEvent = (eventIndex: number, staffId: string) => {
+    const newEvents = [...events];
+    newEvents[eventIndex].assigned_staff = newEvents[eventIndex].assigned_staff.filter(id => id !== staffId);
+    setEvents(newEvents);
+  };
+
+  const getStaffByRole = (eventIndex: number, role: string) => {
+    return events[eventIndex].assigned_staff
+      .map(staffId => staff.find(s => s.id === staffId))
+      .filter(s => s && s.role === role) as Staff[];
+  };
+
+  const getAvailableStaffByRole = (role: string) => {
+    return activeStaff.filter(s => s.role === role);
+  };
+
   const handleAddTemporaryStaff = async (eventIndex: number, staffData: { name: string; role: string; contactNumber: string }) => {
     try {
       const { data: newStaff, error } = await supabase
         .from('staff')
         .insert({
           name: staffData.name,
-          role: staffData.role,
+          role: tempStaffRole || staffData.role,
           contact_number: staffData.contactNumber || null,
           status: 'temporary',
         })
@@ -194,46 +215,13 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
       setEvents(newEvents);
 
       setShowTempStaffModal(null);
+      setTempStaffRole(null);
     } catch (error) {
       console.error('Error adding temporary staff:', error);
       alert('Failed to add temporary staff. Please try again.');
     }
   };
 
-  const handleSort = (key: 'name' | 'role') => {
-    setSortConfig({
-      key,
-      direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc',
-    });
-  };
-
-  const getSortedStaff = (staffList: typeof staff) => {
-    return [...staffList].sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
-
-      if (sortConfig.key === 'role') {
-        const roleOrder = ['photographer', 'videographer', 'drone_operator', 'editor'];
-        const aIndex = roleOrder.indexOf(a.role);
-        const bIndex = roleOrder.indexOf(b.role);
-
-        if (aIndex !== bIndex) {
-          return sortConfig.direction === 'asc' ? aIndex - bIndex : bIndex - aIndex;
-        }
-
-        aVal = a.name;
-        bVal = b.name;
-      }
-
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sortConfig.direction === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-
-      return 0;
-    });
-  };
 
   const filteredClients = clients.filter((c) => {
     const query = clientSearchQuery.toLowerCase();
@@ -507,7 +495,6 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
     return false;
   });
-  const sortedStaff = getSortedStaff(activeStaff);
 
   return (
     <>
@@ -923,92 +910,93 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
                     </div>
 
                     <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-700">Assigned Staff</label>
-                        <button
-                          type="button"
-                          onClick={() => setShowTempStaffModal(idx)}
-                          className="text-sm text-gray-900 hover:text-gray-700 flex items-center gap-1 font-medium"
-                        >
-                          <UserPlus size={16} />
-                          Add Temporary Staff
-                        </button>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Staff Assignment</label>
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-5">
+                        {(['photographer', 'videographer', 'drone_operator', 'editor'] as const).map((role) => {
+                          const assignedStaff = getStaffByRole(idx, role);
+                          const availableStaff = getAvailableStaffByRole(role);
+                          const roleConfig = {
+                            photographer: { emoji: '📸', label: 'Photographers' },
+                            videographer: { emoji: '🎥', label: 'Videographers' },
+                            drone_operator: { emoji: '🚁', label: 'Drone Operators' },
+                            editor: { emoji: '✂️', label: 'Editors' }
+                          }[role];
+
+                          return (
+                            <div key={role} className="staff-category">
+                              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                {roleConfig.emoji} {roleConfig.label} ({assignedStaff.length} assigned)
+                              </h4>
+                              <div className="space-y-2">
+                                {assignedStaff.map((staffMember) => (
+                                  <div key={staffMember.id} className="flex gap-2">
+                                    <select
+                                      value={staffMember.id}
+                                      onChange={(e) => {
+                                        if (e.target.value === 'temp') {
+                                          setTempStaffRole(role);
+                                          setShowTempStaffModal(idx);
+                                        } else if (e.target.value !== staffMember.id) {
+                                          removeStaffFromEvent(idx, staffMember.id);
+                                          addStaffToEvent(idx, e.target.value);
+                                        }
+                                      }}
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-gray-900 focus:border-gray-900 text-sm"
+                                    >
+                                      <option value={staffMember.id}>
+                                        {staffMember.name}
+                                        {staffMember.status === 'temporary' ? ' (Temp)' : ''}
+                                      </option>
+                                      {availableStaff
+                                        .filter(s => s.id !== staffMember.id && !event.assigned_staff.includes(s.id))
+                                        .map(s => (
+                                          <option key={s.id} value={s.id}>
+                                            {s.name}
+                                            {s.status === 'temporary' ? ' (Temp)' : ''}
+                                          </option>
+                                        ))}
+                                      <option value="temp">+ Add Temporary Staff</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeStaffFromEvent(idx, staffMember.id)}
+                                      className="w-8 h-8 bg-red-100 text-red-600 hover:bg-red-200 rounded-md transition-colors flex items-center justify-center text-lg font-semibold"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const unassignedStaff = availableStaff.filter(s => !event.assigned_staff.includes(s.id));
+                                    if (unassignedStaff.length > 0) {
+                                      addStaffToEvent(idx, unassignedStaff[0].id);
+                                    } else {
+                                      setTempStaffRole(role);
+                                      setShowTempStaffModal(idx);
+                                    }
+                                  }}
+                                  className="w-full px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-md transition-colors"
+                                >
+                                  + Add {roleConfig.label.slice(0, -1)}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="border border-gray-300 rounded-lg overflow-hidden">
-                        <table className="w-full">
-                          <thead className="bg-gray-100">
-                            <tr>
-                              <th
-                                className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                                onClick={() => handleSort('name')}
-                              >
-                                <div className="flex items-center gap-1">
-                                  Staff Member
-                                  <ArrowUpDown size={14} className="text-gray-500" />
-                                  {sortConfig.key === 'name' && (
-                                    <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                                  )}
-                                </div>
-                              </th>
-                              <th
-                                className="px-4 py-2 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors"
-                                onClick={() => handleSort('role')}
-                              >
-                                <div className="flex items-center gap-1">
-                                  Role
-                                  <ArrowUpDown size={14} className="text-gray-500" />
-                                  {sortConfig.key === 'role' && (
-                                    <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                                  )}
-                                </div>
-                              </th>
-                              <th className="px-4 py-2 text-center text-sm font-medium text-gray-700">Assign</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {sortedStaff.length === 0 ? (
-                              <tr>
-                                <td colSpan={3} className="px-4 py-3 text-center text-gray-500">
-                                  No staff available
-                                </td>
-                              </tr>
-                            ) : (
-                              sortedStaff.map((staffMember) => (
-                                <tr key={staffMember.id}>
-                                  <td className="px-4 py-2 text-sm text-gray-900">
-                                    <div className="flex items-center gap-2">
-                                      {staffMember.name}
-                                      {staffMember.status === 'temporary' && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                          Temp
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-2 text-sm text-gray-600 capitalize">{staffMember.role.replace('_', ' ')}</td>
-                                  <td className="px-4 py-2 text-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={event.assigned_staff.includes(staffMember.id)}
-                                      onChange={() => toggleStaffAssignment(idx, staffMember.id)}
-                                      className="w-4 h-4 text-gray-900 focus:ring-gray-900 rounded"
-                                    />
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                      <p className="text-sm text-green-600 mt-2">
-                        {event.assigned_staff.length} staff member(s) assigned
-                      </p>
-                      {event.assigned_staff.length < (event.photographers_required + event.videographers_required + event.drone_operators_required + event.editors_required) && (
-                        <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
-                          <AlertCircle size={14} />
-                          Warning: Assigned staff count is less than required team size
+                      <div className="mt-3 space-y-1">
+                        <p className="text-sm text-green-600">
+                          {event.assigned_staff.length} staff member(s) assigned
                         </p>
-                      )}
+                        {event.assigned_staff.length < (event.photographers_required + event.videographers_required + event.drone_operators_required + event.editors_required) && (
+                          <p className="text-sm text-yellow-600 flex items-center gap-1">
+                            <AlertCircle size={14} />
+                            Warning: Assigned staff count is less than required team size
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1040,7 +1028,11 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
     {showTempStaffModal !== null && (
       <TemporaryStaffModal
         onAdd={(staffData) => handleAddTemporaryStaff(showTempStaffModal, staffData)}
-        onClose={() => setShowTempStaffModal(null)}
+        onClose={() => {
+          setShowTempStaffModal(null);
+          setTempStaffRole(null);
+        }}
+        defaultRole={tempStaffRole as any}
       />
     )}
     </>
