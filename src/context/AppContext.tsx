@@ -151,6 +151,23 @@ export interface Expense {
   booking?: Booking;
 }
 
+export interface StaffPayment {
+  id: string;
+  booking_id: string;
+  event_id?: string | null;
+  staff_id: string;
+  amount: number;
+  status: 'agreed' | 'paid';
+  date: string;
+  payment_method?: string | null;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+  booking?: Booking;
+  event?: Event;
+  staff?: Staff;
+}
+
 interface AppState {
   clients: Client[];
   bookings: Booking[];
@@ -162,6 +179,7 @@ interface AppState {
   staffPaymentRecords: StaffPaymentRecord[];
   clientPaymentRecords: ClientPaymentRecord[];
   expenses: Expense[];
+  staffPayments: StaffPayment[];
   loading: boolean;
   error: string | null;
 }
@@ -179,6 +197,7 @@ type AppAction =
   | { type: 'SET_STAFF_PAYMENT_RECORDS'; payload: StaffPaymentRecord[] }
   | { type: 'SET_CLIENT_PAYMENT_RECORDS'; payload: ClientPaymentRecord[] }
   | { type: 'SET_EXPENSES'; payload: Expense[] }
+  | { type: 'SET_STAFF_PAYMENTS'; payload: StaffPayment[] }
   | { type: 'ADD_CLIENT'; payload: Client }
   | { type: 'UPDATE_CLIENT'; payload: Client }
   | { type: 'DELETE_CLIENT'; payload: string }
@@ -203,7 +222,9 @@ type AppAction =
   | { type: 'DELETE_CLIENT_PAYMENT_RECORD'; payload: string }
   | { type: 'ADD_EXPENSE'; payload: Expense }
   | { type: 'UPDATE_EXPENSE'; payload: Expense }
-  | { type: 'DELETE_EXPENSE'; payload: string };
+  | { type: 'DELETE_EXPENSE'; payload: string }
+  | { type: 'ADD_STAFF_PAYMENT'; payload: StaffPayment }
+  | { type: 'DELETE_STAFF_PAYMENT'; payload: string };
 
 const initialState: AppState = {
   clients: [],
@@ -216,6 +237,7 @@ const initialState: AppState = {
   staffPaymentRecords: [],
   clientPaymentRecords: [],
   expenses: [],
+  staffPayments: [],
   loading: true,
   error: null,
 };
@@ -246,6 +268,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, clientPaymentRecords: action.payload };
     case 'SET_EXPENSES':
       return { ...state, expenses: action.payload };
+    case 'SET_STAFF_PAYMENTS':
+      return { ...state, staffPayments: action.payload };
     case 'ADD_CLIENT':
       return { ...state, clients: [...state.clients, action.payload] };
     case 'UPDATE_CLIENT':
@@ -320,6 +344,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'DELETE_EXPENSE':
       return { ...state, expenses: state.expenses.filter((e) => e.id !== action.payload) };
+    case 'ADD_STAFF_PAYMENT':
+      return { ...state, staffPayments: [...state.staffPayments, action.payload] };
+    case 'DELETE_STAFF_PAYMENT':
+      return { ...state, staffPayments: state.staffPayments.filter((sp) => sp.id !== action.payload) };
     default:
       return state;
   }
@@ -352,6 +380,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         staffPaymentRecordsRes,
         clientPaymentRecordsRes,
         expensesRes,
+        staffPaymentsRes,
       ] = await Promise.all([
         supabase.from('clients').select('*').order('created_at', { ascending: false }),
         supabase.from('bookings').select('*, client:clients(*)').order('created_at', { ascending: false }),
@@ -363,6 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from('staff_payment_records').select('*, staff:staff(*), event:events(*)').order('payment_date', { ascending: false }),
         supabase.from('client_payment_records').select('*, client:clients(*), booking:bookings(*)').order('payment_date', { ascending: false }),
         supabase.from('expenses').select('*, booking:bookings(*, client:clients(*))').order('date', { ascending: false }),
+        supabase.from('staff_payments').select('*, booking:bookings(*), event:events(*), staff:staff(*)').order('date', { ascending: false }),
       ]);
 
       if (clientsRes.error) throw clientsRes.error;
@@ -375,6 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (staffPaymentRecordsRes.error) throw staffPaymentRecordsRes.error;
       if (clientPaymentRecordsRes.error) throw clientPaymentRecordsRes.error;
       if (expensesRes.error) throw expensesRes.error;
+      if (staffPaymentsRes.error) throw staffPaymentsRes.error;
 
       dispatch({ type: 'SET_CLIENTS', payload: clientsRes.data });
       dispatch({ type: 'SET_BOOKINGS', payload: bookingsRes.data });
@@ -386,6 +417,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_STAFF_PAYMENT_RECORDS', payload: staffPaymentRecordsRes.data });
       dispatch({ type: 'SET_CLIENT_PAYMENT_RECORDS', payload: clientPaymentRecordsRes.data });
       dispatch({ type: 'SET_EXPENSES', payload: expensesRes.data });
+      dispatch({ type: 'SET_STAFF_PAYMENTS', payload: staffPaymentsRes.data });
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     } finally {

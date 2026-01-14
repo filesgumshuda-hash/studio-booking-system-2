@@ -9,6 +9,7 @@ import { ClientSummaryCard } from '../components/payments/ClientSummaryCard';
 import { ClientDetailSection } from '../components/payments/ClientDetailSection';
 import { AddClientPaymentForm, ClientPaymentFormData } from '../components/payments/AddClientPaymentForm';
 import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
+import { AddStaffPaymentModal } from '../components/payments/AddStaffPaymentModal';
 import { Plus, Trash2 } from 'lucide-react';
 import {
   getTop10Clients,
@@ -20,10 +21,11 @@ import {
 } from '../utils/clientPaymentCalculations';
 
 export function ClientPaymentsPage() {
-  const { clients, bookings, events, clientPaymentRecords, expenses, dispatch } = useAppData();
+  const { clients, bookings, events, clientPaymentRecords, expenses, staffPayments, staff, dispatch } = useAppData();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     paymentId: string;
@@ -72,6 +74,35 @@ export function ClientPaymentsPage() {
   const totalClientExpenses = useMemo(() => {
     return selectedClientExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [selectedClientExpenses]);
+
+  const selectedClientStaffPayments = useMemo(() => {
+    if (!selectedClientId) return [];
+    const clientBookingIds = bookings
+      .filter(b => b.client_id === selectedClientId)
+      .map(b => b.id);
+    return staffPayments.filter(sp => clientBookingIds.includes(sp.booking_id));
+  }, [selectedClientId, bookings, staffPayments]);
+
+  const totalStaffPayments = useMemo(() => {
+    return selectedClientStaffPayments.reduce((sum, sp) => sum + sp.amount, 0);
+  }, [selectedClientStaffPayments]);
+
+  const staffPaymentsPaid = useMemo(() => {
+    return selectedClientStaffPayments
+      .filter(sp => sp.status === 'paid')
+      .reduce((sum, sp) => sum + sp.amount, 0);
+  }, [selectedClientStaffPayments]);
+
+  const staffPaymentsAgreed = useMemo(() => {
+    return selectedClientStaffPayments
+      .filter(sp => sp.status === 'agreed')
+      .reduce((sum, sp) => sum + sp.amount, 0);
+  }, [selectedClientStaffPayments]);
+
+  const netProfit = useMemo(() => {
+    if (!selectedClientSummary) return 0;
+    return selectedClientSummary.totalReceived - totalClientExpenses - totalStaffPayments;
+  }, [selectedClientSummary, totalClientExpenses, totalStaffPayments]);
 
   const clientsWithBookings = useMemo(() => {
     return clients
@@ -154,6 +185,40 @@ export function ClientPaymentsPage() {
     } catch (error: any) {
       console.error('Error deleting expense:', error);
       showToast(error.message || 'Failed to delete expense', 'error');
+    }
+  };
+
+  const handleAddStaffPayment = async (staffPaymentData: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('staff_payments')
+        .insert(staffPaymentData)
+        .select('*, booking:bookings(*), event:events(*), staff:staff(*)')
+        .single();
+
+      if (error) throw error;
+
+      dispatch({ type: 'ADD_STAFF_PAYMENT', payload: data });
+      showToast('Staff payment added successfully', 'success');
+    } catch (error: any) {
+      console.error('Error adding staff payment:', error);
+      showToast(error.message || 'Failed to add staff payment', 'error');
+      throw error;
+    }
+  };
+
+  const handleDeleteStaffPayment = async (staffPaymentId: string) => {
+    if (!confirm('Are you sure you want to delete this staff payment?')) return;
+
+    try {
+      const { error } = await supabase.from('staff_payments').delete().eq('id', staffPaymentId);
+      if (error) throw error;
+
+      dispatch({ type: 'DELETE_STAFF_PAYMENT', payload: staffPaymentId });
+      showToast('Staff payment deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting staff payment:', error);
+      showToast(error.message || 'Failed to delete staff payment', 'error');
     }
   };
 
@@ -296,6 +361,130 @@ export function ClientPaymentsPage() {
                 </>
               )}
             </div>
+
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg shadow-md p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Staff Payments</h2>
+                <Button
+                  type="button"
+                  onClick={() => setShowStaffPaymentModal(true)}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus size={18} />
+                  Add Staff Payment
+                </Button>
+              </div>
+
+              {selectedClientStaffPayments.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No staff payments recorded for this client</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full bg-white rounded-lg overflow-hidden">
+                      <thead className="bg-blue-100 border-b border-blue-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Staff</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Event</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Amount</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedClientStaffPayments.map((staffPayment) => {
+                          const staffMember = staff.find(s => s.id === staffPayment.staff_id);
+                          const event = events.find(e => e.id === staffPayment.event_id);
+                          return (
+                            <tr key={staffPayment.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {formatDate(staffPayment.date)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {staffMember?.name || 'Unknown Staff'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {event?.event_name || '-'}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    staffPayment.status === 'paid'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}
+                                >
+                                  {staffPayment.status === 'paid' ? 'Paid' : 'Agreed'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                {formatCurrency(staffPayment.amount)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleDeleteStaffPayment(staffPayment.id)}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="Delete staff payment"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-blue-50 font-semibold">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-gray-900">
+                            <div className="flex justify-between">
+                              <span>Total Staff Payments:</span>
+                              <span className="text-xs text-gray-600">
+                                ({formatCurrency(staffPaymentsAgreed)} pending + {formatCurrency(staffPaymentsPaid)} paid)
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-blue-700 font-bold">
+                            {formatCurrency(totalStaffPayments)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg shadow-lg p-6 mt-6 border-2 border-gray-300">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="text-2xl">📊</span>
+                Financial Summary
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-4 shadow">
+                  <div className="text-sm text-gray-600 mb-1">Revenue Received</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency(selectedClientSummary?.totalReceived || 0)}
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow">
+                  <div className="text-sm text-gray-600 mb-1">Business Expenses</div>
+                  <div className="text-2xl font-bold text-red-600">
+                    {formatCurrency(totalClientExpenses)}
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg p-4 shadow">
+                  <div className="text-sm text-gray-600 mb-1">Staff Payments</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(totalStaffPayments)}
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg p-4 shadow-md border-2 border-blue-400">
+                  <div className="text-sm font-semibold text-gray-700 mb-1">Net Profit</div>
+                  <div className={`text-3xl font-bold ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                    {formatCurrency(netProfit)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -376,6 +565,14 @@ export function ClientPaymentsPage() {
         <AddExpenseModal
           preSelectedBooking={null}
           onClose={() => setShowExpenseModal(false)}
+        />
+      )}
+
+      {showStaffPaymentModal && selectedClient && (
+        <AddStaffPaymentModal
+          clientBookings={bookings.filter(b => b.client_id === selectedClientId)}
+          onClose={() => setShowStaffPaymentModal(false)}
+          onSave={handleAddStaffPayment}
         />
       )}
 
