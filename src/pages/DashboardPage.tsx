@@ -131,7 +131,7 @@ export function DashboardPage() {
           <p className="text-gray-600">Welcome to WedRing Studios Management System</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
           <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/bookings')}>
             <div className="flex items-center justify-between">
               <div>
@@ -182,6 +182,8 @@ export function DashboardPage() {
               </div>
             </div>
           </Card>
+
+          <ExpensesWidget />
         </div>
 
         {(conflicts.length > 0 || shortages.length > 0 || stats.dataNotReceived > 0) && (
@@ -328,10 +330,9 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <FinancialOverviewWidget />
           <QuickStatsWidget />
-          <ExpensesWidget />
         </div>
 
         <div className="mb-8">
