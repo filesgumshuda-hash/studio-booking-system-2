@@ -50,12 +50,11 @@ export function AddStaffPaymentModal({ clientBookings, onClose, onSave }: AddSta
 
     try {
       await onSave({
-        booking_id: formData.bookingId,
         event_id: formData.eventId || null,
         staff_id: formData.staffId,
         amount: parseFloat(formData.amount),
-        status: formData.status,
-        date: formData.date,
+        type: formData.status === 'paid' ? 'made' : 'agreed',
+        payment_date: formData.date,
         payment_method: formData.status === 'paid' ? formData.paymentMethod : null,
         remarks: formData.remarks || null,
       });

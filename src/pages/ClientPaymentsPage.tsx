@@ -21,7 +21,7 @@ import {
 } from '../utils/clientPaymentCalculations';
 
 export function ClientPaymentsPage() {
-  const { clients, bookings, events, clientPaymentRecords, expenses, staffPayments, staff, dispatch } = useAppData();
+  const { clients, bookings, events, clientPaymentRecords, expenses, staffPaymentRecords, staff, dispatch } = useAppData();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -77,19 +77,27 @@ export function ClientPaymentsPage() {
 
   const selectedClientStaffPayments = useMemo(() => {
     if (!selectedClientId) return [];
+
     const clientBookingIds = bookings
       .filter(b => b.client_id === selectedClientId)
       .map(b => b.id);
 
-    console.log('DEBUG: All staff payments:', staffPayments);
+    const clientEventIds = events
+      .filter(e => clientBookingIds.includes(e.booking_id))
+      .map(e => e.id);
+
+    console.log('DEBUG: All staff payment records:', staffPaymentRecords);
     console.log('DEBUG: Client ID:', selectedClientId);
     console.log('DEBUG: Client booking IDs:', clientBookingIds);
+    console.log('DEBUG: Client event IDs:', clientEventIds);
 
-    const filtered = staffPayments.filter(sp => clientBookingIds.includes(sp.booking_id));
+    const filtered = staffPaymentRecords.filter(sp =>
+      sp.event_id && clientEventIds.includes(sp.event_id)
+    );
     console.log('DEBUG: Filtered staff payments:', filtered);
 
     return filtered;
-  }, [selectedClientId, bookings, staffPayments]);
+  }, [selectedClientId, bookings, events, staffPaymentRecords]);
 
   const totalStaffPayments = useMemo(() => {
     return selectedClientStaffPayments.reduce((sum, sp) => sum + sp.amount, 0);
@@ -97,13 +105,13 @@ export function ClientPaymentsPage() {
 
   const staffPaymentsPaid = useMemo(() => {
     return selectedClientStaffPayments
-      .filter(sp => sp.status === 'paid')
+      .filter(sp => sp.type === 'made')
       .reduce((sum, sp) => sum + sp.amount, 0);
   }, [selectedClientStaffPayments]);
 
   const staffPaymentsAgreed = useMemo(() => {
     return selectedClientStaffPayments
-      .filter(sp => sp.status === 'agreed')
+      .filter(sp => sp.type === 'agreed')
       .reduce((sum, sp) => sum + sp.amount, 0);
   }, [selectedClientStaffPayments]);
 
@@ -194,14 +202,14 @@ export function ClientPaymentsPage() {
   const handleAddStaffPayment = async (staffPaymentData: any) => {
     try {
       const { data, error } = await supabase
-        .from('staff_payments')
+        .from('staff_payment_records')
         .insert(staffPaymentData)
-        .select('*, booking:bookings(*), event:events(*), staff:staff(*)')
+        .select('*, event:events(*), staff:staff(*)')
         .single();
 
       if (error) throw error;
 
-      dispatch({ type: 'ADD_STAFF_PAYMENT', payload: data });
+      dispatch({ type: 'ADD_STAFF_PAYMENT_RECORD', payload: data });
       showToast('Staff payment added successfully', 'success');
     } catch (error: any) {
       console.error('Error adding staff payment:', error);
@@ -214,10 +222,10 @@ export function ClientPaymentsPage() {
     if (!confirm('Are you sure you want to delete this staff payment?')) return;
 
     try {
-      const { error } = await supabase.from('staff_payments').delete().eq('id', staffPaymentId);
+      const { error } = await supabase.from('staff_payment_records').delete().eq('id', staffPaymentId);
       if (error) throw error;
 
-      dispatch({ type: 'DELETE_STAFF_PAYMENT', payload: staffPaymentId });
+      dispatch({ type: 'DELETE_STAFF_PAYMENT_RECORD', payload: staffPaymentId });
       showToast('Staff payment deleted successfully', 'success');
     } catch (error: any) {
       console.error('Error deleting staff payment:', error);
@@ -401,7 +409,7 @@ export function ClientPaymentsPage() {
                           return (
                             <tr key={staffPayment.id} className="hover:bg-gray-50">
                               <td className="px-4 py-3 text-sm text-gray-900">
-                                {formatDate(staffPayment.date)}
+                                {formatDate(staffPayment.payment_date)}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-900">
                                 {staffMember?.name || 'Unknown Staff'}
@@ -412,12 +420,12 @@ export function ClientPaymentsPage() {
                               <td className="px-4 py-3 text-sm">
                                 <span
                                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    staffPayment.status === 'paid'
+                                    staffPayment.type === 'made'
                                       ? 'bg-green-100 text-green-800'
                                       : 'bg-yellow-100 text-yellow-800'
                                   }`}
                                 >
-                                  {staffPayment.status === 'paid' ? 'Paid' : 'Agreed'}
+                                  {staffPayment.type === 'made' ? 'Paid' : 'Agreed'}
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
