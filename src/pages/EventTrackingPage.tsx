@@ -7,7 +7,7 @@ import { useAppData } from '../context/AppContext';
 import type { Event } from '../context/AppContext';
 import { getBookingStatus, getWorkflowProgress, formatDate, formatTimeSlot } from '../utils/helpers';
 import { supabase } from '../lib/supabase';
-import { Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, ChevronDown, ChevronRight, Search } from 'lucide-react';
 
 type WorkflowType = 'still' | 'reel' | 'video' | 'portrait';
 
@@ -23,32 +23,15 @@ export function EventTrackingPage() {
   const navigate = useNavigate();
   const { bookings, events, clients, workflows, staffAssignments, staff } = useAppData();
 
-  const enrichedBookings = useMemo(() => {
-    return bookings
-      .map((booking) => {
-        const bookingEvents = events.filter((e) => e.booking_id === booking.id);
-        const client = clients.find((c) => c.id === booking.client_id);
-        const bookingWorkflow = workflows.find((w) => w.booking_id === booking.id);
-        return {
-          ...booking,
-          events: bookingEvents,
-          client,
-          workflows: bookingWorkflow ? [bookingWorkflow] : [],
-        };
-      })
-      .filter((b) => b.events.length > 0)
-      .sort((a, b) => {
-        const aLatestDate = a.events.reduce(
-          (latest, e) => (e.event_date > latest ? e.event_date : latest),
-          ''
-        );
-        const bLatestDate = b.events.reduce(
-          (latest, e) => (e.event_date > latest ? e.event_date : latest),
-          ''
-        );
-        return new Date(bLatestDate).getTime() - new Date(aLatestDate).getTime();
-      });
-  }, [bookings, events, clients, workflows]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFilter, setTimeFilter] = useState<'active' | 'past' | 'all'>('active');
+  const [sortBy, setSortBy] = useState('date-asc');
+  const [hideCompleted, setHideCompleted] = useState(false);
+
+  const getEarliestEventDate = (booking: EnrichedBooking): number => {
+    if (booking.events.length === 0) return 0;
+    return Math.min(...booking.events.map(e => new Date(e.event_date).getTime()));
+  };
 
   const calculateDataCollection = (booking: EnrichedBooking) => {
     const photographers = new Set<string>();
@@ -132,6 +115,76 @@ export function EventTrackingPage() {
     return { totals, completed };
   };
 
+  const enrichedBookings = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let result = bookings
+      .map((booking) => {
+        const bookingEvents = events.filter((e) => e.booking_id === booking.id);
+        const client = clients.find((c) => c.id === booking.client_id);
+        const bookingWorkflow = workflows.find((w) => w.booking_id === booking.id);
+        return {
+          ...booking,
+          events: bookingEvents,
+          client,
+          workflows: bookingWorkflow ? [bookingWorkflow] : [],
+        };
+      })
+      .filter((b) => b.events.length > 0);
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(b =>
+        b.client?.name.toLowerCase().includes(query) ||
+        b.booking_name?.toLowerCase().includes(query) ||
+        b.events.some(e => e.event_name.toLowerCase().includes(query))
+      );
+    }
+
+    if (timeFilter === 'active') {
+      result = result.filter(b =>
+        b.events.some(e => new Date(e.event_date) >= today)
+      );
+    } else if (timeFilter === 'past') {
+      result = result.filter(b =>
+        b.events.every(e => new Date(e.event_date) < today)
+      );
+    }
+
+    if (hideCompleted) {
+      result = result.filter(b => {
+        const progress = calculateOverallProgress(b);
+        return progress < 100;
+      });
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc':
+          return getEarliestEventDate(a) - getEarliestEventDate(b);
+        case 'date-desc':
+          return getEarliestEventDate(b) - getEarliestEventDate(a);
+        case 'name':
+          return (a.booking_name || a.client?.name || '').localeCompare(
+            b.booking_name || b.client?.name || ''
+          );
+        case 'client':
+          return (a.client?.name || '').localeCompare(b.client?.name || '');
+        case 'progress-asc':
+          return calculateOverallProgress(a) - calculateOverallProgress(b);
+        case 'progress-desc':
+          return calculateOverallProgress(b) - calculateOverallProgress(a);
+        case 'booking':
+          return (a.booking_name || '').localeCompare(b.booking_name || '');
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [bookings, events, clients, workflows, staffAssignments, staff, searchQuery, timeFilter, sortBy, hideCompleted]);
+
   const getLatestEventDate = (events: Event[]) => {
     if (events.length === 0) return '';
     const sorted = [...events].sort((a, b) =>
@@ -164,14 +217,71 @@ export function EventTrackingPage() {
           <p className="text-gray-600 mt-1">Manage workflow progress for all bookings</p>
         </div>
 
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex-1 min-w-[300px] relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search by client, booking, or event name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+              />
+            </div>
+
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value as 'active' | 'past' | 'all')}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 min-w-[180px]"
+            >
+              <option value="active">Active Events</option>
+              <option value="past">Past Events</option>
+              <option value="all">All Events</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 min-w-[220px]"
+            >
+              <option value="date-asc">Sort: Date (Earliest First)</option>
+              <option value="date-desc">Sort: Date (Latest First)</option>
+              <option value="name">Sort: Event Name (A-Z)</option>
+              <option value="client">Sort: Client Name (A-Z)</option>
+              <option value="booking">Sort: Booking Name (A-Z)</option>
+              <option value="progress-asc">Sort: Progress (Low to High)</option>
+              <option value="progress-desc">Sort: Progress (High to Low)</option>
+            </select>
+
+            <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={hideCompleted}
+                onChange={(e) => setHideCompleted(e.target.checked)}
+                className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+              />
+              <span className="text-sm font-medium text-gray-700">Hide Completed</span>
+            </label>
+          </div>
+
+          <div className="mt-3 text-sm text-gray-600">
+            Showing <span className="font-semibold text-gray-900">{enrichedBookings.length}</span> {timeFilter === 'all' ? '' : timeFilter} booking{enrichedBookings.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
         {enrichedBookings.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📸</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No bookings yet
+              {searchQuery || timeFilter !== 'all' || hideCompleted
+                ? 'No bookings match your filters'
+                : 'No bookings yet'}
             </h3>
             <p className="text-gray-600">
-              Create your first booking to start tracking
+              {searchQuery || timeFilter !== 'all' || hideCompleted
+                ? 'Try adjusting your search or filter criteria'
+                : 'Create your first booking to start tracking'}
             </p>
           </div>
         ) : (
