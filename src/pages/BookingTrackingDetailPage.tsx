@@ -1,21 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAppData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { BookingWorkflow } from '../components/tracking/BookingWorkflow';
 import { formatDate, getBookingStatus, getWorkflowProgress } from '../utils/helpers';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/common/Button';
+import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
 
 export function BookingTrackingDetailPage() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { bookings, events, clients, workflows, staffAssignments, staff, refreshData } = useAppData();
+  const { bookings, events, clients, workflows, staffAssignments, staff, expenses, clientPaymentRecords, dispatch, refreshData } = useAppData();
 
   const [updatingAssignments, setUpdatingAssignments] = useState<Set<string>>(new Set());
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
 
   const booking = useMemo(() => {
     return bookings.find(b => b.id === bookingId);
@@ -67,6 +69,39 @@ export function BookingTrackingDetailPage() {
 
     return totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
   }, [bookingWorkflow]);
+
+  const financials = useMemo(() => {
+    if (!booking) return { totalAgreed: 0, totalReceived: 0, outstanding: 0, totalExpenses: 0, netProfit: 0 };
+
+    const payments = clientPaymentRecords.filter(p => p.booking_id === booking.id);
+    const totalAgreed = payments
+      .filter(p => p.payment_status === 'agreed' || p.payment_status === 'received')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const totalReceived = payments
+      .filter(p => p.payment_status === 'received')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const outstanding = totalAgreed - totalReceived;
+
+    const bookingExpenses = expenses.filter(e => e.booking_id === booking.id);
+    const totalExpenses = bookingExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = totalReceived - totalExpenses;
+
+    return { totalAgreed, totalReceived, outstanding, totalExpenses, netProfit, bookingExpenses };
+  }, [booking, clientPaymentRecords, expenses]);
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!confirm('Are you sure you want to delete this expense?')) return;
+
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+      if (error) throw error;
+
+      dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+    } catch (error: any) {
+      console.error('Error deleting expense:', error);
+      alert('Failed to delete expense. Please try again.');
+    }
+  };
 
   const getEventAssignments = (eventId: string) => {
     return staffAssignments
@@ -249,6 +284,100 @@ export function BookingTrackingDetailPage() {
           </div>
         </div>
 
+        {/* Financial Summary */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Financial Summary</h2>
+            <Button
+              variant="secondary"
+              onClick={() => setShowExpenseModal(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Add Expense
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-1">Revenue Agreed</div>
+              <div className="text-xl font-bold text-gray-900">
+                ₹{financials.totalAgreed.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="bg-green-50 rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-1">Received</div>
+              <div className="text-xl font-bold text-green-600">
+                ₹{financials.totalReceived.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="bg-orange-50 rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-1">Outstanding</div>
+              <div className="text-xl font-bold text-orange-600">
+                ₹{financials.outstanding.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="bg-red-50 rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-1">Expenses</div>
+              <div className="text-xl font-bold text-red-600">
+                ₹{financials.totalExpenses.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-500">
+              <div className="text-sm text-gray-600 mb-1">Net Profit</div>
+              <div className="text-xl font-bold text-blue-600">
+                ₹{financials.netProfit.toLocaleString('en-IN')}
+              </div>
+            </div>
+          </div>
+
+          {financials.bookingExpenses && financials.bookingExpenses.length > 0 && (
+            <div>
+              <h3 className="text-md font-semibold text-gray-900 mb-3">
+                Expenses ({financials.bookingExpenses.length})
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Description</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Method</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Amount</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {financials.bookingExpenses.map((expense) => (
+                      <tr key={expense.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {formatDate(expense.date)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{expense.description}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                          {expense.payment_method.replace('_', ' ')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                          ₹{expense.amount.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => handleDeleteExpense(expense.id)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            title="Delete expense"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Events Section with Expand/Collapse */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Events</h2>
@@ -390,6 +519,13 @@ export function BookingTrackingDetailPage() {
         {/* Single Booking-Level Workflow Section */}
         <BookingWorkflow bookingId={bookingId!} workflow={bookingWorkflow} />
       </div>
+
+      {showExpenseModal && (
+        <AddExpenseModal
+          preSelectedBooking={booking}
+          onClose={() => setShowExpenseModal(false)}
+        />
+      )}
     </div>
   );
 }

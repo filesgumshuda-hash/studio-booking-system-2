@@ -12,6 +12,7 @@ import { RecentActivityWidget } from '../components/dashboard/RecentActivityWidg
 import { PaymentQuickAccess } from '../components/dashboard/PaymentQuickAccess';
 import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
 import { OverduePaymentsModal } from '../components/dashboard/OverduePaymentsModal';
+import { ExpensesWidget } from '../components/dashboard/ExpensesWidget';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -327,9 +328,10 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <FinancialOverviewWidget />
           <QuickStatsWidget />
+          <ExpensesWidget />
         </div>
 
         <div className="mb-8">

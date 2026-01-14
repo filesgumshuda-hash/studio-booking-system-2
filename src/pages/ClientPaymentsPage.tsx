@@ -8,6 +8,8 @@ import { Button } from '../components/common/Button';
 import { ClientSummaryCard } from '../components/payments/ClientSummaryCard';
 import { ClientDetailSection } from '../components/payments/ClientDetailSection';
 import { AddClientPaymentForm, ClientPaymentFormData } from '../components/payments/AddClientPaymentForm';
+import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
+import { Plus, Trash2 } from 'lucide-react';
 import {
   getTop10Clients,
   calculateClientSummary,
@@ -18,9 +20,10 @@ import {
 } from '../utils/clientPaymentCalculations';
 
 export function ClientPaymentsPage() {
-  const { clients, bookings, events, clientPaymentRecords, dispatch } = useAppData();
+  const { clients, bookings, events, clientPaymentRecords, expenses, dispatch } = useAppData();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     paymentId: string;
@@ -57,6 +60,18 @@ export function ClientPaymentsPage() {
     if (!selectedClientId) return [];
     return getClientPayments(selectedClientId, clientPaymentRecords, bookings);
   }, [selectedClientId, clientPaymentRecords, bookings]);
+
+  const selectedClientExpenses = useMemo(() => {
+    if (!selectedClientId) return [];
+    const clientBookingIds = bookings
+      .filter(b => b.client_id === selectedClientId)
+      .map(b => b.id);
+    return expenses.filter(e => e.booking_id && clientBookingIds.includes(e.booking_id));
+  }, [selectedClientId, bookings, expenses]);
+
+  const totalClientExpenses = useMemo(() => {
+    return selectedClientExpenses.reduce((sum, e) => sum + e.amount, 0);
+  }, [selectedClientExpenses]);
 
   const clientsWithBookings = useMemo(() => {
     return clients
@@ -127,6 +142,21 @@ export function ClientPaymentsPage() {
     }
   };
 
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!confirm('Are you sure you want to delete this expense?')) return;
+
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+      if (error) throw error;
+
+      dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+      showToast('Expense deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting expense:', error);
+      showToast(error.message || 'Failed to delete expense', 'error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -182,14 +212,91 @@ export function ClientPaymentsPage() {
         </div>
 
         {selectedClient && selectedClientSummary && (
-          <ClientDetailSection
-            client={selectedClient}
-            summary={selectedClientSummary}
-            bookingAmounts={selectedClientBookingAmounts}
-            paymentHistory={selectedClientPaymentHistory}
-            onAddPayment={() => setShowAddPaymentModal(true)}
-            onDeletePayment={handleDeletePayment}
-          />
+          <>
+            <ClientDetailSection
+              client={selectedClient}
+              summary={selectedClientSummary}
+              bookingAmounts={selectedClientBookingAmounts}
+              paymentHistory={selectedClientPaymentHistory}
+              onAddPayment={() => setShowAddPaymentModal(true)}
+              onDeletePayment={handleDeletePayment}
+            />
+
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Expenses Incurred</h2>
+                <Button
+                  type="button"
+                  onClick={() => setShowExpenseModal(true)}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
+                >
+                  <Plus size={18} />
+                  Add Expense
+                </Button>
+              </div>
+
+              {selectedClientExpenses.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No expenses recorded for this client</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Booking</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Description</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Method</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Amount</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedClientExpenses.map((expense) => {
+                          const booking = bookings.find(b => b.id === expense.booking_id);
+                          return (
+                            <tr key={expense.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {formatDate(expense.date)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {booking?.booking_name || 'Unknown Booking'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{expense.description}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                                {expense.payment_method.replace('_', ' ')}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                {formatCurrency(expense.amount)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleDeleteExpense(expense.id)}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="Delete expense"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-gray-50 font-semibold">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-right text-gray-900">
+                            Total Expenses:
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-red-600 font-bold">
+                            {formatCurrency(totalClientExpenses)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -262,6 +369,13 @@ export function ClientPaymentsPage() {
           onCancel={() => setDeleteConfirmation({ isOpen: false, paymentId: '', payment: null })}
           confirmText="Delete"
           cancelText="Cancel"
+        />
+      )}
+
+      {showExpenseModal && selectedClient && (
+        <AddExpenseModal
+          preSelectedBooking={null}
+          onClose={() => setShowExpenseModal(false)}
         />
       )}
 
