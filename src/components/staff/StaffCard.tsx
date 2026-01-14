@@ -64,7 +64,7 @@ export function StaffCard({ staff, onEdit }: StaffCardProps) {
                           {formatDate(event.event_date)} • {event.venue}
                         </p>
                         <p className="text-xs text-gray-500 mt-1 capitalize">
-                          Role: {assignment?.role.replace('_', ' ')}
+                          Role: {staff.role.replace('_', ' ')}
                         </p>
                       </div>
                       <StatusBadge status={event.time_slot} />

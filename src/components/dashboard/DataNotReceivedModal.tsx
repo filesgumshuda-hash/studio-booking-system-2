@@ -158,12 +158,13 @@ export function DataNotReceivedModal({ onClose }: DataNotReceivedModalProps) {
   };
 
   const formatDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: 'UTC'
     });
   };
 

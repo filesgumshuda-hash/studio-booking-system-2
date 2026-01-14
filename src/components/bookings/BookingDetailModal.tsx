@@ -174,7 +174,7 @@ export function BookingDetailModal({ booking, onClose, onEdit }: BookingDetailMo
                                 key={assignment.id}
                                 className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded text-xs"
                               >
-                                {getRoleIcon(assignment.role)} {assignment.staff?.name}
+                                {getRoleIcon(assignment.staff?.role || assignment.role)} {assignment.staff?.name}
                               </span>
                             ))}
                           </div>

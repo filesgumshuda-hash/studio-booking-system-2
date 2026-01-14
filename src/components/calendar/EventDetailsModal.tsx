@@ -102,7 +102,7 @@ export function EventDetailsModal({
                         <div key={sa.id} className="flex items-center gap-2">
                           <span className="text-sm">• {sa.staff?.name || 'Unknown'}</span>
                           <span className="text-xs text-gray-500 capitalize">
-                            {sa.role.replace('_', ' ')}
+                            {(sa.staff?.role || sa.role).replace('_', ' ')}
                           </span>
                         </div>
                       ))}

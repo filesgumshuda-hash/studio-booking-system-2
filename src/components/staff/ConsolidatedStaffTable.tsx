@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Edit, Key, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Edit, Key, Eye, EyeOff, UserPlus, Trash2 } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { CreateLoginModal } from './CreateLoginModal';
 import { StaffAssignmentsModal } from './StaffAssignmentsModal';
@@ -233,6 +233,47 @@ export function ConsolidatedStaffTable({
     setShowAssignmentsModal(true);
   };
 
+  const handleDeleteStaff = async (staffMember: ConsolidatedStaffMember) => {
+    const assignmentCount = staffMember.assignmentCount;
+
+    let confirmMessage = `Delete ${staffMember.name}?\n\n`;
+
+    if (assignmentCount > 0) {
+      confirmMessage += `⚠️ Warning: ${staffMember.name} is assigned to ${assignmentCount} event(s).\n\nDeleting will remove them from all events and delete all associated payment records.\n\nThis action cannot be undone.\n\nContinue?`;
+    } else {
+      confirmMessage += `This will permanently delete ${staffMember.name} from the system.\n\nThis action cannot be undone.\n\nContinue?`;
+    }
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      if (staffMember.user) {
+        const { error: userError } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', staffMember.user.id);
+
+        if (userError) throw userError;
+      }
+
+      const { error: staffError } = await supabase
+        .from('staff')
+        .delete()
+        .eq('id', staffMember.id);
+
+      if (staffError) throw staffError;
+
+      await fetchUsers();
+      showToast(`${staffMember.name} deleted successfully`, 'success');
+
+      window.location.reload();
+    } catch (error: any) {
+      showToast(`Failed to delete staff: ${error.message}`, 'error');
+    }
+  };
+
   const getRoleBadge = (role: 'admin' | 'manager' | 'staff' | null) => {
     if (!role) {
       return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">No Access</span>;
@@ -263,10 +304,12 @@ export function ConsolidatedStaffTable({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
+    const date = new Date(dateString + 'T00:00:00Z');
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
       month: 'short',
-      day: 'numeric'
+      year: 'numeric',
+      timeZone: 'UTC'
     });
   };
 
@@ -383,6 +426,13 @@ export function ConsolidatedStaffTable({
                             <UserPlus size={16} />
                           </button>
                         )}
+                        <button
+                          onClick={() => handleDeleteStaff(staffMember)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Delete Staff"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -66,9 +66,14 @@ export function parseStoredDate(dateString: string): { year: number; month: numb
 }
 
 export function formatDate(dateString: string): string {
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const [year, month, day] = dateString.split('-');
+  const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
 }
 
 export function formatTimeSlot(timeSlot: string): string {

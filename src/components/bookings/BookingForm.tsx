@@ -118,8 +118,13 @@ export function BookingForm({ booking, onSuccess, onCancel }: BookingFormProps) 
 
   const formatEventDate = (dateString: string) => {
     if (!dateString) return 'No date';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const date = new Date(dateString + 'T00:00:00Z');
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
   };
 
   const addEvent = () => {
