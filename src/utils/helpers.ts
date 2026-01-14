@@ -30,15 +30,17 @@ export function getBookingStatus(events: Event[], workflows: Workflow[]): string
 
 export function getWorkflowProgress(workflow: Workflow | undefined) {
   if (!workflow) {
-    return { still: 0, reel: 0, video: 0, portrait: 0 };
+    return { still: 0, reel: 0, video: 0, portrait: 0, stillTotal: 0, reelTotal: 0, videoTotal: 0, portraitTotal: 0 };
   }
 
   const countCompleted = (workflowSteps: Record<string, any>) => {
-    return Object.values(workflowSteps).filter((step: any) => step?.completed).length;
+    const applicableSteps = Object.values(workflowSteps).filter((step: any) => !step?.notApplicable);
+    return applicableSteps.filter((step: any) => step?.completed).length;
   };
 
   const countTotal = (workflowSteps: Record<string, any>) => {
-    return Object.keys(workflowSteps).length;
+    const applicableSteps = Object.values(workflowSteps).filter((step: any) => !step?.notApplicable);
+    return applicableSteps.length;
   };
 
   return {

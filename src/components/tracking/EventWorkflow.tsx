@@ -53,6 +53,7 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
     const currentStep = currentWorkflow[stepKey] || { completed: false };
 
     const updatedStep = {
+      ...currentStep,
       completed: !currentStep.completed,
       completed_at: !currentStep.completed ? new Date().toISOString() : null,
       updated_by: 'Admin',
@@ -81,6 +82,39 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
     }
   };
 
+  const toggleNA = async (workflowType: string, stepKey: string) => {
+    const workflowField = `${workflowType}_workflow`;
+    const currentWorkflow = (workflow as any)[workflowField] || {};
+    const currentStep = currentWorkflow[stepKey] || { completed: false };
+
+    const updatedStep = {
+      ...currentStep,
+      notApplicable: !currentStep.notApplicable,
+      completed: currentStep.notApplicable ? currentStep.completed : false,
+      completed_at: currentStep.notApplicable ? currentStep.completed_at : null,
+    };
+
+    const updatedWorkflow = {
+      ...currentWorkflow,
+      [stepKey]: updatedStep,
+    };
+
+    try {
+      const { error } = await supabase
+        .from('workflows')
+        .update({
+          [workflowField]: updatedWorkflow,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workflow.id);
+
+      if (error) throw error;
+      await refreshData();
+    } catch (error: any) {
+      console.error('Error updating workflow:', error);
+    }
+  };
+
   const getStepsByTab = () => {
     switch (activeTab) {
       case 'still':
@@ -97,8 +131,10 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
   const { steps, workflow: activeWorkflow } = getStepsByTab();
 
   const getProgress = (workflowSteps: any) => {
-    const completed = Object.values(workflowSteps || {}).filter((s: any) => s?.completed).length;
-    const total = Object.keys(workflowSteps || {}).length;
+    const allSteps = Object.values(workflowSteps || {});
+    const applicableSteps = allSteps.filter((s: any) => !s?.notApplicable);
+    const completed = applicableSteps.filter((s: any) => s?.completed).length;
+    const total = applicableSteps.length;
     return { completed, total };
   };
 
@@ -156,6 +192,7 @@ export function EventWorkflow({ event, workflow }: EventWorkflowProps) {
               label={step.label}
               step={(activeWorkflow as any)[step.key] || { completed: false }}
               onToggle={() => toggleStep(activeTab, step.key)}
+              onToggleNA={() => toggleNA(activeTab, step.key)}
             />
           ))}
         </div>

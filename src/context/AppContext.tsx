@@ -73,6 +73,7 @@ export interface WorkflowStep {
   completed_at?: string;
   updated_by?: string;
   notes?: string;
+  notApplicable?: boolean;
 }
 
 export interface Workflow {
