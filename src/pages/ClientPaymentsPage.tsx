@@ -80,7 +80,15 @@ export function ClientPaymentsPage() {
     const clientBookingIds = bookings
       .filter(b => b.client_id === selectedClientId)
       .map(b => b.id);
-    return staffPayments.filter(sp => clientBookingIds.includes(sp.booking_id));
+
+    console.log('DEBUG: All staff payments:', staffPayments);
+    console.log('DEBUG: Client ID:', selectedClientId);
+    console.log('DEBUG: Client booking IDs:', clientBookingIds);
+
+    const filtered = staffPayments.filter(sp => clientBookingIds.includes(sp.booking_id));
+    console.log('DEBUG: Filtered staff payments:', filtered);
+
+    return filtered;
   }, [selectedClientId, bookings, staffPayments]);
 
   const totalStaffPayments = useMemo(() => {
@@ -98,11 +106,6 @@ export function ClientPaymentsPage() {
       .filter(sp => sp.status === 'agreed')
       .reduce((sum, sp) => sum + sp.amount, 0);
   }, [selectedClientStaffPayments]);
-
-  const netProfit = useMemo(() => {
-    if (!selectedClientSummary) return 0;
-    return selectedClientSummary.totalReceived - totalClientExpenses - totalStaffPayments;
-  }, [selectedClientSummary, totalClientExpenses, totalStaffPayments]);
 
   const clientsWithBookings = useMemo(() => {
     return clients
@@ -453,38 +456,6 @@ export function ClientPaymentsPage() {
               )}
             </div>
 
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg shadow-lg p-6 mt-6 border-2 border-gray-300">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-2xl">📊</span>
-                Financial Summary
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg p-4 shadow">
-                  <div className="text-sm text-gray-600 mb-1">Revenue Received</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(selectedClientSummary?.totalReceived || 0)}
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 shadow">
-                  <div className="text-sm text-gray-600 mb-1">Business Expenses</div>
-                  <div className="text-2xl font-bold text-red-600">
-                    {formatCurrency(totalClientExpenses)}
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 shadow">
-                  <div className="text-sm text-gray-600 mb-1">Staff Payments</div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(totalStaffPayments)}
-                  </div>
-                </div>
-                <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg p-4 shadow-md border-2 border-blue-400">
-                  <div className="text-sm font-semibold text-gray-700 mb-1">Net Profit</div>
-                  <div className={`text-3xl font-bold ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                    {formatCurrency(netProfit)}
-                  </div>
-                </div>
-              </div>
-            </div>
           </>
         )}
       </div>

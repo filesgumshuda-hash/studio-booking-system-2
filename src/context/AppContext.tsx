@@ -407,6 +407,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (expensesRes.error) throw expensesRes.error;
       if (staffPaymentsRes.error) throw staffPaymentsRes.error;
 
+      console.log('DEBUG AppContext: Loaded staff_payments:', staffPaymentsRes.data);
+
       dispatch({ type: 'SET_CLIENTS', payload: clientsRes.data });
       dispatch({ type: 'SET_BOOKINGS', payload: bookingsRes.data });
       dispatch({ type: 'SET_EVENTS', payload: eventsRes.data });
