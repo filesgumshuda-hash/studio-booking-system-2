@@ -3,6 +3,7 @@ import { ClientPaymentRecord, Client, Booking, Event } from '../context/AppConte
 export interface ClientSummary {
   clientId: string;
   clientName: string;
+  packageAmount: number;
   totalAgreed: number;
   totalReceived: number;
   outstanding: number;
@@ -59,6 +60,10 @@ export function calculateClientSummary(
   bookings: Booking[],
   payments: ClientPaymentRecord[]
 ): ClientSummary {
+  const packageAmount = bookings
+    .filter(b => b.client_id === clientId)
+    .reduce((sum, b) => sum + Number(b.package_amount || 0), 0);
+
   const totalAgreed = payments
     .filter(p => p.client_id === clientId && p.payment_status === 'agreed')
     .reduce((sum, p) => sum + Number(p.amount), 0);
@@ -72,6 +77,7 @@ export function calculateClientSummary(
   return {
     clientId,
     clientName,
+    packageAmount,
     totalAgreed,
     totalReceived,
     outstanding,
