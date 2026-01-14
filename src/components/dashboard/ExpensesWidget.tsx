@@ -1,5 +1,4 @@
 import React from 'react';
-import { DollarSign } from 'lucide-react';
 import { Card } from '../common/Card';
 import { useAppData } from '../../context/AppContext';
 
@@ -21,24 +20,37 @@ export function ExpensesWidget() {
     .reduce((sum, e) => sum + e.amount, 0);
 
   return (
-    <Card className="hover:shadow-lg transition-all">
-      <div className="flex items-center justify-between">
+    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="text-3xl">💸</div>
         <div>
-          <p className="text-gray-600 text-sm font-medium mb-1">This Month Expenses</p>
-          <p className="text-3xl font-bold text-gray-900">₹{totalExpenses.toLocaleString('en-IN')}</p>
-          <div className="mt-2 space-y-1">
-            <p className="text-xs text-gray-600">
-              General: ₹{generalExpenses.toLocaleString('en-IN')}
-            </p>
-            <p className="text-xs text-gray-600">
-              Booking: ₹{bookingExpenses.toLocaleString('en-IN')}
-            </p>
+          <h3 className="text-sm font-medium text-gray-600">This Month Expenses</h3>
+          <div className="text-2xl font-bold text-red-600 mt-1">
+            ₹{totalExpenses.toLocaleString('en-IN')}
           </div>
         </div>
-        <div className="bg-red-100 p-3 rounded-lg">
-          <DollarSign className="text-red-600" size={24} />
+      </div>
+
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">General:</span>
+          <span className="font-semibold text-gray-900">
+            ₹{generalExpenses.toLocaleString('en-IN')}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Booking:</span>
+          <span className="font-semibold text-gray-900">
+            ₹{bookingExpenses.toLocaleString('en-IN')}
+          </span>
         </div>
       </div>
+
+      {monthlyExpenses.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
+          {monthlyExpenses.length} expense{monthlyExpenses.length !== 1 ? 's' : ''} this month
+        </div>
+      )}
     </Card>
   );
 }
