@@ -120,7 +120,7 @@ export function DashboardPage() {
       });
   }, [events, bookings, clients, todayString]);
 
-  const { conflicts, shortages } = detectConflicts(events, staffAssignments);
+  const { conflicts, shortages } = detectConflicts(events, staffAssignments, staff);
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -37,19 +37,16 @@ export function EventDetailsModal({
       };
     });
 
-  const photographerCount = assignedStaff.filter((sa) => sa.role === 'photographer').length;
-  const videographerCount = assignedStaff.filter((sa) => sa.role === 'videographer').length;
-  const droneCount = assignedStaff.filter((sa) => sa.role === 'drone_operator').length;
-  const editorCount = assignedStaff.filter((sa) => sa.role === 'editor').length;
+  const photographerCount = assignedStaff.filter((sa) => sa.staff?.role === 'photographer').length;
+  const videographerCount = assignedStaff.filter((sa) => sa.staff?.role === 'videographer').length;
+  const droneCount = assignedStaff.filter((sa) => sa.staff?.role === 'drone_operator').length;
+  const editorCount = assignedStaff.filter((sa) => sa.staff?.role === 'editor').length;
 
-  const totalRequired =
-    event.photographers_required +
-    event.videographers_required +
-    event.drone_operators_required +
-    event.editors_required;
-  const totalAssigned = photographerCount + videographerCount + droneCount + editorCount;
-
-  const isFullyStaffed = totalAssigned >= totalRequired;
+  const isFullyStaffed =
+    photographerCount >= event.photographers_required &&
+    videographerCount >= event.videographers_required &&
+    droneCount >= event.drone_operators_required &&
+    editorCount >= event.editors_required;
 
   const timeSlotBadge = getTimeSlotBadge(event.time_slot);
 

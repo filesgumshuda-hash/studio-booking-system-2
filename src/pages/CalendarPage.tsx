@@ -23,7 +23,7 @@ export function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { conflicts, shortages } = detectConflicts(accessibleEvents, staffAssignments);
+  const { conflicts, shortages } = detectConflicts(accessibleEvents, staffAssignments, staff);
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -74,19 +74,28 @@ export function CalendarPage() {
         const hasConflict = conflicts.some((c) => c.eventIds?.includes(event.id));
         const hasShortage = shortages.some((s) => s.eventId === event.id);
 
-        const photographerCount = eventAssignments.filter((sa) => sa.role === 'photographer').length;
-        const videographerCount = eventAssignments.filter((sa) => sa.role === 'videographer').length;
-        const droneCount = eventAssignments.filter((sa) => sa.role === 'drone_operator').length;
-        const editorCount = eventAssignments.filter((sa) => sa.role === 'editor').length;
+        const photographerCount = eventAssignments.filter((sa) => {
+          const staffMember = staff.find((s) => s.id === sa.staff_id);
+          return staffMember?.role === 'photographer';
+        }).length;
+        const videographerCount = eventAssignments.filter((sa) => {
+          const staffMember = staff.find((s) => s.id === sa.staff_id);
+          return staffMember?.role === 'videographer';
+        }).length;
+        const droneCount = eventAssignments.filter((sa) => {
+          const staffMember = staff.find((s) => s.id === sa.staff_id);
+          return staffMember?.role === 'drone_operator';
+        }).length;
+        const editorCount = eventAssignments.filter((sa) => {
+          const staffMember = staff.find((s) => s.id === sa.staff_id);
+          return staffMember?.role === 'editor';
+        }).length;
 
-        const totalRequired =
-          event.photographers_required +
-          event.videographers_required +
-          event.drone_operators_required +
-          event.editors_required;
-        const totalAssigned = photographerCount + videographerCount + droneCount + editorCount;
-
-        const isFullyStaffed = totalAssigned >= totalRequired;
+        const isFullyStaffed =
+          photographerCount >= event.photographers_required &&
+          videographerCount >= event.videographers_required &&
+          droneCount >= event.drone_operators_required &&
+          editorCount >= event.editors_required;
 
         return {
           ...event,

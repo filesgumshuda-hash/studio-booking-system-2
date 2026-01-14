@@ -96,7 +96,7 @@ export function getTimeSlotBadge(timeSlot: string): string {
   return badges[timeSlot] || 'M';
 }
 
-export function detectConflicts(events: Event[], staffAssignments: any[]) {
+export function detectConflicts(events: Event[], staffAssignments: any[], staffMembers?: any[]) {
   const conflicts: any[] = [];
   const shortages: any[] = [];
 
@@ -136,10 +136,38 @@ export function detectConflicts(events: Event[], staffAssignments: any[]) {
 
   events.forEach(event => {
     const eventAssignments = staffAssignments.filter(sa => sa.event_id === event.id);
-    const photographerCount = eventAssignments.filter(sa => sa.role === 'photographer').length;
-    const videographerCount = eventAssignments.filter(sa => sa.role === 'videographer').length;
-    const droneCount = eventAssignments.filter(sa => sa.role === 'drone_operator').length;
-    const editorCount = eventAssignments.filter(sa => sa.role === 'editor').length;
+
+    const photographerCount = eventAssignments.filter(sa => {
+      if (staffMembers) {
+        const staffMember = staffMembers.find(s => s.id === sa.staff_id);
+        return staffMember?.role === 'photographer';
+      }
+      return sa.role === 'photographer';
+    }).length;
+
+    const videographerCount = eventAssignments.filter(sa => {
+      if (staffMembers) {
+        const staffMember = staffMembers.find(s => s.id === sa.staff_id);
+        return staffMember?.role === 'videographer';
+      }
+      return sa.role === 'videographer';
+    }).length;
+
+    const droneCount = eventAssignments.filter(sa => {
+      if (staffMembers) {
+        const staffMember = staffMembers.find(s => s.id === sa.staff_id);
+        return staffMember?.role === 'drone_operator';
+      }
+      return sa.role === 'drone_operator';
+    }).length;
+
+    const editorCount = eventAssignments.filter(sa => {
+      if (staffMembers) {
+        const staffMember = staffMembers.find(s => s.id === sa.staff_id);
+        return staffMember?.role === 'editor';
+      }
+      return sa.role === 'editor';
+    }).length;
 
     if (photographerCount < event.photographers_required ||
         videographerCount < event.videographers_required ||
