@@ -165,6 +165,7 @@ export function ClientDetailSection({
                     <td className="px-4 py-3 text-sm text-gray-600">{payment.remarks || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        type="button"
                         onClick={() => onDeletePayment(payment.id)}
                         className="text-gray-400 hover:text-red-600 transition-colors"
                         title="Delete payment"
