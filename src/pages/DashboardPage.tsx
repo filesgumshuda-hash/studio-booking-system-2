@@ -13,12 +13,14 @@ import { PaymentQuickAccess } from '../components/dashboard/PaymentQuickAccess';
 import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
 import { OverduePaymentsModal } from '../components/dashboard/OverduePaymentsModal';
 import { ExpensesWidget } from '../components/dashboard/ExpensesWidget';
+import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { bookings, events, clients, staff, staffAssignments, workflows, payments } = useAppData();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showOverdueModal, setShowOverdueModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -235,7 +237,7 @@ export function DashboardPage() {
           </div>
         )}
 
-        <PaymentQuickAccess />
+        <PaymentQuickAccess onAddExpense={() => setShowExpenseModal(true)} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card>
@@ -341,6 +343,7 @@ export function DashboardPage() {
 
       {showDataModal && <DataNotReceivedModal onClose={() => setShowDataModal(false)} />}
       {showOverdueModal && <OverduePaymentsModal onClose={() => setShowOverdueModal(false)} />}
+      {showExpenseModal && <AddExpenseModal onClose={() => setShowExpenseModal(false)} />}
     </div>
   );
 }

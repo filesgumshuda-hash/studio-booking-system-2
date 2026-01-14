@@ -1,11 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export function PaymentQuickAccess() {
+interface PaymentQuickAccessProps {
+  onAddExpense?: () => void;
+}
+
+export function PaymentQuickAccess({ onAddExpense }: PaymentQuickAccessProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
       {/* Client Payments Button */}
       <button
         onClick={() => navigate('/client-payments')}
@@ -36,6 +40,23 @@ export function PaymentQuickAccess() {
           </div>
         </div>
         <div className="text-2xl text-blue-600 group-hover:translate-x-1 transition-transform">
+          →
+        </div>
+      </button>
+
+      {/* Expenses Button */}
+      <button
+        onClick={onAddExpense}
+        className="flex items-center justify-between p-6 bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 rounded-lg hover:shadow-lg hover:border-red-400 transition-all group"
+      >
+        <div className="flex items-center gap-4">
+          <div className="text-4xl">💸</div>
+          <div className="text-left">
+            <h3 className="text-lg font-bold text-gray-900">Add Expense</h3>
+            <p className="text-sm text-gray-600">Track business and booking expenses</p>
+          </div>
+        </div>
+        <div className="text-2xl text-red-600 group-hover:translate-x-1 transition-transform">
           →
         </div>
       </button>
