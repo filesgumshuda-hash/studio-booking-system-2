@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { SearchBar } from '../components/common/SearchBar';
@@ -14,6 +14,8 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getAccessibleBookings, canManageBookings, canDeleteBookings } from '../utils/accessControl';
 
+type SortOption = 'name' | 'name-desc' | 'date-asc' | 'date-desc' | 'progress' | 'events' | 'created';
+
 export function BookingsPage() {
   const { user } = useAuth();
   const { bookings, events, clients, staff, staffAssignments, workflows, payments, staffPaymentRecords, clientPaymentRecords, refreshData } = useAppData();
@@ -23,6 +25,7 @@ export function BookingsPage() {
   }, [user, bookings, events]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'active' | 'past'>('active');
+  const [sortBy, setSortBy] = useState<SortOption>('name');
   const [showForm, setShowForm] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | undefined>();
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
@@ -30,6 +33,17 @@ export function BookingsPage() {
   const [deletingBookingData, setDeletingBookingData] = useState<{ id: string; name: string; clientName: string } | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const { showToast, ToastComponent } = useToast();
+
+  useEffect(() => {
+    const savedSort = localStorage.getItem('bookings_sort');
+    if (savedSort && ['name', 'name-desc', 'date-asc', 'date-desc', 'progress', 'events', 'created'].includes(savedSort)) {
+      setSortBy(savedSort as SortOption);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('bookings_sort', sortBy);
+  }, [sortBy]);
 
   const enrichedBookings = useMemo(() => {
     return accessibleBookings.map(booking => {
@@ -85,10 +99,68 @@ export function BookingsPage() {
       });
     }
 
-    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const getEarliestEventDate = (booking: any): Date => {
+      if (!booking.events || booking.events.length === 0) {
+        return new Date();
+      }
+      const dates = booking.events.map((e: any) => new Date(e.event_date));
+      return new Date(Math.min(...dates.map(d => d.getTime())));
+    };
+
+    const calculateProgress = (booking: any): number => {
+      const bookingWorkflows = workflows.filter(w => w.booking_id === booking.id);
+      if (bookingWorkflows.length === 0) return 0;
+
+      const completedSteps = bookingWorkflows.filter(w => w.status === 'completed').length;
+      return (completedSteps / bookingWorkflows.length) * 100;
+    };
+
+    switch (sortBy) {
+      case 'name':
+        result.sort((a, b) =>
+          (a.client?.name || '').localeCompare(b.client?.name || '')
+        );
+        break;
+
+      case 'name-desc':
+        result.sort((a, b) =>
+          (b.client?.name || '').localeCompare(a.client?.name || '')
+        );
+        break;
+
+      case 'date-asc':
+        result.sort((a, b) =>
+          getEarliestEventDate(a).getTime() - getEarliestEventDate(b).getTime()
+        );
+        break;
+
+      case 'date-desc':
+        result.sort((a, b) =>
+          getEarliestEventDate(b).getTime() - getEarliestEventDate(a).getTime()
+        );
+        break;
+
+      case 'progress':
+        result.sort((a, b) =>
+          calculateProgress(b) - calculateProgress(a)
+        );
+        break;
+
+      case 'events':
+        result.sort((a, b) =>
+          (b.events?.length || 0) - (a.events?.length || 0)
+        );
+        break;
+
+      case 'created':
+        result.sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        break;
+    }
 
     return result;
-  }, [enrichedBookings, searchQuery, filterType, workflows, staffAssignments, staff]);
+  }, [enrichedBookings, searchQuery, filterType, sortBy, workflows, staffAssignments, staff]);
 
   const handleEdit = (booking: Booking) => {
     setSelectedBooking(null);
@@ -270,10 +342,23 @@ export function BookingsPage() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as 'active' | 'past')}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 min-w-[180px]"
             >
               <option value="active">Active Bookings</option>
               <option value="past">Past Bookings</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 min-w-[220px]"
+            >
+              <option value="name">Sort: Name (A-Z)</option>
+              <option value="name-desc">Sort: Name (Z-A)</option>
+              <option value="date-asc">Sort: Date (Earliest First)</option>
+              <option value="date-desc">Sort: Date (Latest First)</option>
+              <option value="progress">Sort: Progress (High to Low)</option>
+              <option value="events">Sort: Event Count (Most First)</option>
+              <option value="created">Sort: Recently Created</option>
             </select>
           </div>
         </div>
