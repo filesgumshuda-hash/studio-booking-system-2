@@ -119,7 +119,10 @@ export function calculateClientSummary(
     .filter(p => p.client_id === clientId && p.payment_status === 'received')
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
-  const outstanding = totalAgreed - totalReceived;
+  const bookingAmounts = getClientBookings(clientId, bookings, events, payments);
+  const outstanding = bookingAmounts
+    .filter(ba => ba.lastEventPassed)
+    .reduce((sum, ba) => sum + ba.due, 0);
 
   const dateRangeInfo = getClientDateRange(clientId, bookings, events);
   const lastEventPassed = hasLastEventPassed(dateRangeInfo.lastDate);

@@ -62,7 +62,13 @@ export function ClientDetailSection({
             <span className="text-lg font-semibold text-green-600">{formatCurrency(summary.totalReceived)}</span>
           </div>
           <div>
-            <span className="text-gray-600">Outstanding: </span>
+            <span
+              className="text-gray-600 cursor-help border-b border-dotted border-gray-400"
+              title="Outstanding payments for bookings whose last event date has already passed"
+            >
+              Outstanding:
+            </span>
+            <span> </span>
             <span className={`text-lg font-semibold ${getOutstandingColorClass(summary.outstanding)}`}>
               {formatCurrency(summary.outstanding)}
             </span>
