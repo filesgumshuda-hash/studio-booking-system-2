@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { AlertTriangle, Plus, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Calendar, DollarSign } from 'lucide-react';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -16,17 +16,27 @@ function formatAmount(amount: number): string {
 function getRelativeTime(dateString: string): string {
   const now = new Date();
   const date = new Date(dateString);
+
+  if (isNaN(date.getTime())) return '—';
+
   const diff = now.getTime() - date.getTime();
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-  return formatDate(dateString);
+
+  try {
+    return formatDate(dateString);
+  } catch {
+    return '—';
+  }
 }
 
 function formatCompactDate(dateString: string): string {
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '—';
+
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${months[date.getMonth()]} ${date.getDate()}`;
 }
@@ -233,7 +243,7 @@ export function DashboardPage() {
         const client = clients.find((c) => c.id === b.client_id);
         activities.push({
           type: 'booking',
-          text: `${client?.name || 'Unknown'} ${b.booking_name ? `· ${b.booking_name}` : ''}`,
+          text: `${client?.name || 'Unknown'}${b.booking_name ? ` · ${b.booking_name}` : ''}`,
           time: getRelativeTime(b.created_at),
           timestamp: new Date(b.created_at),
         });
@@ -268,94 +278,105 @@ export function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6 lg:py-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
-        {/* Compact KPI Strip */}
+        {/* KPI Strip */}
         <div className="flex flex-wrap items-center gap-3 text-sm mb-6">
           <button
             onClick={() => navigate('/bookings')}
-            className="hover:text-gray-900 transition-colors"
+            className="text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <span className="text-gray-600">Bookings</span>{' '}
-            <span className="font-semibold text-gray-900">{stats.activeBookings}</span>
+            Bookings <span className="font-semibold text-gray-900">{stats.activeBookings}</span>
           </button>
           <span className="text-gray-300">·</span>
           <button
             onClick={() => navigate('/calendar')}
-            className="hover:text-gray-900 transition-colors"
+            className="text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <span className="text-gray-600">Events</span>{' '}
-            <span className="font-semibold text-gray-900">{stats.eventsThisMonth}</span>
+            Events <span className="font-semibold text-gray-900">{stats.eventsThisMonth}</span>
           </button>
           <span className="text-gray-300">·</span>
           <button
             onClick={() => navigate('/tracking?filter=past')}
-            className="hover:text-gray-900 transition-colors"
+            className="text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <span className="text-gray-600">Tasks</span>{' '}
-            <span className="font-semibold text-gray-900">{stats.pendingTasks}</span>
+            Tasks <span className="font-semibold text-gray-900">{stats.pendingTasks}</span>
           </button>
           {stats.overdueBookings > 0 && (
             <>
               <span className="text-gray-300">·</span>
               <button
                 onClick={() => navigate('/client-payments')}
-                className="hover:text-gray-900 transition-colors"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                <span className="text-gray-600">Overdue</span>{' '}
-                <span className="font-semibold text-amber-600">{stats.overdueBookings}</span>{' '}
-                <span className="text-amber-500">⚠</span>
+                Overdue <span className="font-semibold text-amber-600">{stats.overdueBookings}</span> <span className="text-amber-500">⚠</span>
               </button>
             </>
           )}
           <span className="text-gray-300">·</span>
           <button
             onClick={() => navigate('/expenses')}
-            className="hover:text-gray-900 transition-colors"
+            className="text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <span className="text-gray-600">Expenses</span>{' '}
-            <span className="font-semibold text-red-600">₹{formatAmount(stats.thisMonthExpenses)}</span>{' '}
-            <span className="text-red-500">🔴</span>
+            Expenses <span className="font-semibold text-red-600">₹{formatAmount(stats.thisMonthExpenses)}</span> <span className="text-red-500">🔴</span>
           </button>
         </div>
 
-        {/* Finance Hero Section */}
+        {/* Finance Summary */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-wrap items-baseline gap-2 mb-3">
-            <span className="text-gray-700">₹{formatAmount(financeStats.revenue)}</span>
-            <span className="text-gray-400">Revenue</span>
-            <span className="text-gray-400">–</span>
-            <span className="text-red-600">₹{formatAmount(financeStats.expenses)}</span>
-            <span className="text-gray-400">Expenses</span>
-            <span className="text-gray-400">=</span>
-            <span className={`text-2xl font-bold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ₹{formatAmount(financeStats.profit)}
+          <div className="mb-2">
+            <span className={`text-xl font-semibold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ₹{formatAmount(financeStats.profit)} PROFIT
             </span>
-            <span className="text-gray-400">PROFIT</span>
-            {financeStats.profit >= 0 && <span className="text-green-500 text-xl">🟢</span>}
+            {financeStats.profit >= 0 && <span className="ml-2 text-green-500">🟢</span>}
           </div>
-          <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-            <button
-              onClick={() => navigate('/client-payments')}
-              className="hover:text-gray-900 transition-colors"
-            >
-              Outstanding{' '}
-              <span className="font-semibold text-gray-900">₹{formatAmount(financeStats.outstanding)}</span>
-            </button>
-            <span className="text-gray-300">·</span>
-            <button
-              onClick={() => navigate('/staff-payments')}
-              className="hover:text-gray-900 transition-colors"
-            >
-              Staff Due{' '}
-              <span className="font-semibold text-gray-900">₹{formatAmount(financeStats.staffDue)}</span>
-            </button>
+          <div className="text-sm text-gray-600 mb-3">
+            ₹{formatAmount(financeStats.revenue)} Revenue – ₹{formatAmount(financeStats.expenses)} Expenses
           </div>
+          <div className="text-sm text-gray-500">
+            Outstanding ₹{formatAmount(financeStats.outstanding)} · Staff Due ₹{formatAmount(financeStats.staffDue)}
+          </div>
+        </div>
+
+        {/* Financial Action Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <button
+            onClick={() => navigate('/client-payments')}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 text-left hover:shadow-md transition-shadow"
+          >
+            <div className="text-base font-medium text-gray-900 mb-2">Client Payments</div>
+            <div className="text-lg font-semibold text-gray-900 mb-1">
+              ₹{formatAmount(financeStats.outstanding)}
+            </div>
+            <div className="text-sm text-gray-500">Outstanding</div>
+          </button>
+
+          <button
+            onClick={() => navigate('/staff-payments')}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 text-left hover:shadow-md transition-shadow"
+          >
+            <div className="text-base font-medium text-gray-900 mb-2">Staff Payments</div>
+            <div className="text-lg font-semibold text-gray-900 mb-1">
+              ₹{formatAmount(financeStats.staffDue)}
+            </div>
+            <div className="text-sm text-gray-500">Due</div>
+          </button>
+
+          <button
+            onClick={() => navigate('/expenses')}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 text-left hover:shadow-md transition-shadow"
+          >
+            <div className="text-base font-medium text-gray-900 mb-2">Expenses</div>
+            <div className="text-lg font-semibold text-gray-900 mb-1">
+              ₹{formatAmount(stats.thisMonthExpenses)}
+            </div>
+            <div className="text-sm text-gray-500">This Month</div>
+          </button>
         </div>
 
         {/* Staff Shortage Alert */}
         {staffShortages > 0 && (
           <button
             onClick={() => navigate('/calendar')}
-            className="w-full flex items-center gap-3 bg-amber-50 border-l-4 border-amber-500 rounded px-4 py-3 mb-6 hover:bg-amber-100 transition-colors text-left"
+            className="w-full flex items-center gap-3 bg-amber-50 border-l-4 border-amber-400 rounded px-4 py-2.5 mb-6 hover:bg-amber-100 transition-colors text-left"
           >
             <span className="text-amber-500">⚠</span>
             <span className="flex-1 text-sm text-amber-900">
@@ -366,20 +387,20 @@ export function DashboardPage() {
         )}
 
         {/* Agenda and Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {/* Agenda */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Agenda</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+            <h2 className="text-base font-medium text-gray-900 mb-4">Agenda</h2>
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Today:</span>
-                <span className="text-sm font-medium text-gray-900">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Today:</span>
+                <span className="font-medium text-gray-900">
                   {scheduleStats.today === 0 ? 'No events' : `${scheduleStats.today} event${scheduleStats.today > 1 ? 's' : ''}`}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">This week:</span>
-                <span className="text-sm font-medium text-gray-900">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">This week:</span>
+                <span className="font-medium text-gray-900">
                   {scheduleStats.thisWeek} event{scheduleStats.thisWeek !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -398,8 +419,8 @@ export function DashboardPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+            <h2 className="text-base font-medium text-gray-900 mb-4">Quick Actions</h2>
             <div className="space-y-2">
               <button
                 onClick={() => navigate('/bookings')}
@@ -427,29 +448,29 @@ export function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Recent Activity</h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          <h2 className="text-base font-medium text-gray-900 mb-4">Recent Activity</h2>
 
           {recentActivity.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">No recent activity</div>
+            <div className="text-center py-8 text-sm text-gray-400">No recent activity</div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {recentActivity.map((activity, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
+                  className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
                 >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-sm">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <span className="text-sm flex-shrink-0">
                       {activity.type === 'booking' ? '🆕' : '✅'}
                     </span>
                     <span className="text-sm text-gray-600 flex-shrink-0">
                       {activity.type === 'booking' ? 'Booking' : 'Event completed'}
                     </span>
-                    <span className="text-sm text-gray-300">·</span>
+                    <span className="text-sm text-gray-300 flex-shrink-0">·</span>
                     <span className="text-sm text-gray-900 truncate">{activity.text}</span>
                   </div>
-                  <span className="text-xs text-gray-500 ml-4 flex-shrink-0">{activity.time}</span>
+                  <span className="text-sm text-gray-500 ml-4 flex-shrink-0">{activity.time}</span>
                 </div>
               ))}
             </div>
