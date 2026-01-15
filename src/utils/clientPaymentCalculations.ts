@@ -138,20 +138,32 @@ export function calculateClientSummary(
   };
 }
 
+export type OutstandingFilter = 'past' | 'future' | 'all';
+
 export function getTop10Clients(
   clients: Client[],
   bookings: Booking[],
   payments: ClientPaymentRecord[],
-  events: Event[] = []
+  events: Event[] = [],
+  filter: OutstandingFilter = 'past'
 ): ClientSummary[] {
   const clientsWithPayments = clients
     .filter(c => {
       return bookings.some(b => b.client_id === c.id);
     })
     .map((c) => calculateClientSummary(c.id, c.name, bookings, payments, events))
-    .filter((summary) => summary.totalAgreed > 0 || summary.totalReceived > 0);
+    .filter((summary) => summary.totalAgreed > 0 || summary.totalReceived > 0)
+    .filter((summary) => summary.outstanding > 0);
 
-  return clientsWithPayments
+  let filteredClients = clientsWithPayments;
+
+  if (filter === 'past') {
+    filteredClients = clientsWithPayments.filter(c => c.lastEventPassed);
+  } else if (filter === 'future') {
+    filteredClients = clientsWithPayments.filter(c => !c.lastEventPassed);
+  }
+
+  return filteredClients
     .sort((a, b) => {
       if (b.outstanding !== a.outstanding) {
         return b.outstanding - a.outstanding;
