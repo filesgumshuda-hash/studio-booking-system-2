@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { AlertTriangle, Wallet, Users, Receipt } from 'lucide-react';
+import { AlertTriangle, Plus, Calendar, DollarSign } from 'lucide-react';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -23,6 +23,12 @@ function getRelativeTime(dateString: string): string {
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
   return formatDate(dateString);
+}
+
+function formatCompactDate(dateString: string): string {
+  const date = new Date(dateString);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
 export function DashboardPage() {
@@ -190,7 +196,7 @@ export function DashboardPage() {
   }, [clientPaymentRecords, expenses, staffPayments, bookings, events]);
 
   const scheduleStats = useMemo(() => {
-    const todayEvents = events.filter((e) => e.event_date === todayString).length;
+    const todayEvents = events.filter((e) => e.event_date === todayString);
 
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - today.getDay());
@@ -201,16 +207,23 @@ export function DashboardPage() {
 
     const thisWeekEvents = events.filter(
       (e) => e.event_date >= weekStartString && e.event_date <= weekEndString
-    ).length;
+    );
+
+    const upcomingEvents = events
+      .filter((e) => e.event_date >= todayString)
+      .sort((a, b) => a.event_date.localeCompare(b.event_date));
+
+    const nextEvent = upcomingEvents.length > 0 ? upcomingEvents[0] : null;
 
     return {
-      today: todayEvents,
-      thisWeek: thisWeekEvents,
+      today: todayEvents.length,
+      thisWeek: thisWeekEvents.length,
+      nextEvent,
     };
   }, [events, todayString]);
 
   const recentActivity = useMemo(() => {
-    const activities: Array<{ text: string; time: string; timestamp: Date }> = [];
+    const activities: Array<{ type: 'booking' | 'event'; text: string; time: string; timestamp: Date }> = [];
 
     bookings
       .slice()
@@ -219,7 +232,8 @@ export function DashboardPage() {
       .forEach((b) => {
         const client = clients.find((c) => c.id === b.client_id);
         activities.push({
-          text: `New booking: ${client?.name || 'Unknown'} - ${b.booking_name || 'Unnamed'}`,
+          type: 'booking',
+          text: `${client?.name || 'Unknown'} ${b.booking_name ? `· ${b.booking_name}` : ''}`,
           time: getRelativeTime(b.created_at),
           timestamp: new Date(b.created_at),
         });
@@ -234,8 +248,9 @@ export function DashboardPage() {
         const booking = bookings.find((b) => b.id === e.booking_id);
         const client = clients.find((c) => c.id === booking?.client_id);
         activities.push({
-          text: `Event completed: ${client?.name || 'Unknown'} - ${e.event_name}`,
-          time: formatDate(e.event_date),
+          type: 'event',
+          text: `${e.event_name}${client ? ` · ${client.name}` : ''}`,
+          time: formatCompactDate(e.event_date),
           timestamp: new Date(e.event_date),
         });
       });
@@ -253,178 +268,188 @@ export function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6 lg:py-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-          <div
-            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+        {/* Compact KPI Strip */}
+        <div className="flex flex-wrap items-center gap-3 text-sm mb-6">
+          <button
             onClick={() => navigate('/bookings')}
+            className="hover:text-gray-900 transition-colors"
           >
-            <div className="text-xs text-gray-600 mb-2">Bookings</div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.activeBookings}</div>
-          </div>
-
-          <div
-            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            <span className="text-gray-600">Bookings</span>{' '}
+            <span className="font-semibold text-gray-900">{stats.activeBookings}</span>
+          </button>
+          <span className="text-gray-300">·</span>
+          <button
             onClick={() => navigate('/calendar')}
+            className="hover:text-gray-900 transition-colors"
           >
-            <div className="text-xs text-gray-600 mb-2">Events</div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.eventsThisMonth}</div>
-          </div>
-
-          <div
-            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            <span className="text-gray-600">Events</span>{' '}
+            <span className="font-semibold text-gray-900">{stats.eventsThisMonth}</span>
+          </button>
+          <span className="text-gray-300">·</span>
+          <button
             onClick={() => navigate('/tracking?filter=past')}
+            className="hover:text-gray-900 transition-colors"
           >
-            <div
-              className="text-xs text-gray-600 mb-2 cursor-help border-b border-dotted border-gray-400 inline-block"
-              title="Pending workflow tasks for bookings whose last event has passed"
-            >
-              Tasks
-            </div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.pendingTasks}</div>
-          </div>
-
-          <div
-            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
-            onClick={() => navigate('/client-payments')}
-          >
-            <div
-              className="text-xs text-gray-600 mb-2 cursor-help border-b border-dotted border-gray-400 inline-block"
-              title="Bookings with last event date passed and outstanding payments due"
-            >
-              Overdue
-            </div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.overdueBookings}</div>
-          </div>
-
-          <div
-            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            <span className="text-gray-600">Tasks</span>{' '}
+            <span className="font-semibold text-gray-900">{stats.pendingTasks}</span>
+          </button>
+          {stats.overdueBookings > 0 && (
+            <>
+              <span className="text-gray-300">·</span>
+              <button
+                onClick={() => navigate('/client-payments')}
+                className="hover:text-gray-900 transition-colors"
+              >
+                <span className="text-gray-600">Overdue</span>{' '}
+                <span className="font-semibold text-amber-600">{stats.overdueBookings}</span>{' '}
+                <span className="text-amber-500">⚠</span>
+              </button>
+            </>
+          )}
+          <span className="text-gray-300">·</span>
+          <button
             onClick={() => navigate('/expenses')}
+            className="hover:text-gray-900 transition-colors"
           >
-            <div className="text-xs text-gray-600 mb-2">Expenses</div>
-            <div className="text-2xl font-semibold text-red-600">
-              ₹{formatAmount(stats.thisMonthExpenses)}
-            </div>
-          </div>
+            <span className="text-gray-600">Expenses</span>{' '}
+            <span className="font-semibold text-red-600">₹{formatAmount(stats.thisMonthExpenses)}</span>{' '}
+            <span className="text-red-500">🔴</span>
+          </button>
         </div>
 
-        {staffShortages > 0 && (
-          <div className="flex items-center gap-3 bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 mb-5">
-            <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
-            <span className="flex-1 text-sm text-amber-900 font-medium">
-              {staffShortages} Staff Shortage{staffShortages > 1 ? 's' : ''}
+        {/* Finance Hero Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-wrap items-baseline gap-2 mb-3">
+            <span className="text-gray-700">₹{formatAmount(financeStats.revenue)}</span>
+            <span className="text-gray-400">Revenue</span>
+            <span className="text-gray-400">–</span>
+            <span className="text-red-600">₹{formatAmount(financeStats.expenses)}</span>
+            <span className="text-gray-400">Expenses</span>
+            <span className="text-gray-400">=</span>
+            <span className={`text-2xl font-bold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ₹{formatAmount(financeStats.profit)}
             </span>
+            <span className="text-gray-400">PROFIT</span>
+            {financeStats.profit >= 0 && <span className="text-green-500 text-xl">🟢</span>}
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm text-gray-600">
             <button
-              onClick={() => navigate('/calendar')}
-              className="text-sm text-blue-600 hover:underline font-medium"
+              onClick={() => navigate('/client-payments')}
+              className="hover:text-gray-900 transition-colors"
             >
-              View Calendar →
+              Outstanding{' '}
+              <span className="font-semibold text-gray-900">₹{formatAmount(financeStats.outstanding)}</span>
+            </button>
+            <span className="text-gray-300">·</span>
+            <button
+              onClick={() => navigate('/staff-payments')}
+              className="hover:text-gray-900 transition-colors"
+            >
+              Staff Due{' '}
+              <span className="font-semibold text-gray-900">₹{formatAmount(financeStats.staffDue)}</span>
             </button>
           </div>
+        </div>
+
+        {/* Staff Shortage Alert */}
+        {staffShortages > 0 && (
+          <button
+            onClick={() => navigate('/calendar')}
+            className="w-full flex items-center gap-3 bg-amber-50 border-l-4 border-amber-500 rounded px-4 py-3 mb-6 hover:bg-amber-100 transition-colors text-left"
+          >
+            <span className="text-amber-500">⚠</span>
+            <span className="flex-1 text-sm text-amber-900">
+              Staff shortage: {staffShortages} shift{staffShortages > 1 ? 's' : ''} uncovered
+            </span>
+            <span className="text-sm text-amber-700">View calendar →</span>
+          </button>
         )}
 
-        <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 mb-5">
-          <div className="text-xs font-semibold text-gray-600 mb-3 tracking-wide">
-            FINANCE SUMMARY
+        {/* Agenda and Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Agenda */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-4">Agenda</h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Today:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {scheduleStats.today === 0 ? 'No events' : `${scheduleStats.today} event${scheduleStats.today > 1 ? 's' : ''}`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">This week:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {scheduleStats.thisWeek} event{scheduleStats.thisWeek !== 1 ? 's' : ''}
+                </span>
+              </div>
+              {scheduleStats.nextEvent && (
+                <div className="pt-3 border-t border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1">Next:</div>
+                  <button
+                    onClick={() => navigate('/calendar')}
+                    className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                  >
+                    {formatCompactDate(scheduleStats.nextEvent.event_date)} · {scheduleStats.nextEvent.event_name}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-6">
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-600">Revenue:</span>
-              <span className="font-semibold text-gray-900">
-                ₹{formatAmount(financeStats.revenue)}
-              </span>
-            </div>
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-600">Expenses:</span>
-              <span className="font-semibold text-red-600">
-                ₹{formatAmount(financeStats.expenses)}
-              </span>
-            </div>
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-600">Profit:</span>
-              <span
-                className={`font-semibold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-4">Quick Actions</h2>
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate('/bookings')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
-                ₹{formatAmount(financeStats.profit)}
-              </span>
-            </div>
-            <div className="flex gap-2 text-sm">
-              <span
-                className="text-gray-600 cursor-help border-b border-dotted border-gray-400"
-                title="Outstanding payments for bookings whose last event date has already passed"
+                <Plus size={18} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">New Booking</span>
+              </button>
+              <button
+                onClick={() => navigate('/expenses')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
-                Outstanding:
-              </span>
-              <span className="font-semibold text-gray-900">
-                ₹{formatAmount(financeStats.outstanding)}
-              </span>
-            </div>
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-600">Staff Due:</span>
-              <span className="font-semibold text-red-600">
-                ₹{formatAmount(financeStats.staffDue)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-          <button
-            onClick={() => navigate('/client-payments')}
-            className="flex items-center gap-3 bg-white border-l-4 border-green-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
-          >
-            <Wallet className="text-green-600 flex-shrink-0" size={20} />
-            <span className="text-sm font-medium text-gray-900">Client Payments</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/staff-payments')}
-            className="flex items-center gap-3 bg-white border-l-4 border-blue-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
-          >
-            <Users className="text-blue-600 flex-shrink-0" size={20} />
-            <span className="text-sm font-medium text-gray-900">Staff Payments</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/expenses')}
-            className="flex items-center gap-3 bg-white border-l-4 border-red-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
-          >
-            <Receipt className="text-red-600 flex-shrink-0" size={20} />
-            <span className="text-sm font-medium text-gray-900">Expenses</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-          <div className="bg-gray-100 border border-gray-200 rounded-lg p-4">
-            <div className="text-xs font-semibold text-gray-600 mb-2 tracking-wide">TODAY</div>
-            <div className="text-lg font-semibold text-gray-900">
-              {scheduleStats.today === 0 ? 'No events' : `${scheduleStats.today} events`}
-            </div>
-          </div>
-
-          <div className="bg-gray-100 border border-gray-200 rounded-lg p-4">
-            <div className="text-xs font-semibold text-gray-600 mb-2 tracking-wide">THIS WEEK</div>
-            <div className="text-lg font-semibold text-gray-900">
-              {scheduleStats.thisWeek === 0 ? '0 events' : `${scheduleStats.thisWeek} events`}
+                <DollarSign size={18} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Add Expense</span>
+              </button>
+              <button
+                onClick={() => navigate('/calendar')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <Calendar size={18} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Assign Staff</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-100 border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-semibold text-gray-600 tracking-wide">RECENT ACTIVITY</h3>
-          </div>
+        {/* Recent Activity */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Recent Activity</h2>
 
           {recentActivity.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">No recent activity</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentActivity.map((activity, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between py-2 border-b border-gray-300 last:border-b-0"
+                  className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
                 >
-                  <span className="text-sm text-gray-900">{activity.text}</span>
-                  <span className="text-xs text-gray-500">{activity.time}</span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-sm">
+                      {activity.type === 'booking' ? '🆕' : '✅'}
+                    </span>
+                    <span className="text-sm text-gray-600 flex-shrink-0">
+                      {activity.type === 'booking' ? 'Booking' : 'Event completed'}
+                    </span>
+                    <span className="text-sm text-gray-300">·</span>
+                    <span className="text-sm text-gray-900 truncate">{activity.text}</span>
+                  </div>
+                  <span className="text-xs text-gray-500 ml-4 flex-shrink-0">{activity.time}</span>
                 </div>
               ))}
             </div>
