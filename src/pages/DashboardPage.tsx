@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Wallet, Users, Receipt } from 'lucide-react';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -295,6 +295,32 @@ export function DashboardPage() {
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+          <button
+            onClick={() => navigate('/client-payments')}
+            className="flex items-center gap-3 bg-white border-l-4 border-green-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
+          >
+            <Wallet className="text-green-600 flex-shrink-0" size={20} />
+            <span className="text-sm font-medium text-gray-900">Client Payments</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/staff')}
+            className="flex items-center gap-3 bg-white border-l-4 border-blue-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
+          >
+            <Users className="text-blue-600 flex-shrink-0" size={20} />
+            <span className="text-sm font-medium text-gray-900">Staff Payments</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/expenses')}
+            className="flex items-center gap-3 bg-white border-l-4 border-red-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
+          >
+            <Receipt className="text-red-600 flex-shrink-0" size={20} />
+            <span className="text-sm font-medium text-gray-900">Expenses</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
