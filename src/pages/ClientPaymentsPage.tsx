@@ -1,17 +1,22 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo } from 'react';
 import { useAppData, ClientPaymentRecord } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { Button } from '../components/common/Button';
-import { ClientDetailModal } from '../components/payments/ClientDetailModal';
+import { ClientSummaryCard } from '../components/payments/ClientSummaryCard';
+import { ClientDetailSection } from '../components/payments/ClientDetailSection';
 import { AddClientPaymentForm, ClientPaymentFormData } from '../components/payments/AddClientPaymentForm';
 import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
 import { AddStaffPaymentModal } from '../components/payments/AddStaffPaymentModal';
 import { Plus, Trash2, Search, AlertTriangle, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  getTop10Clients,
+  calculateClientSummary,
+  getClientBookings,
+  getClientPayments,
   formatCurrency,
   formatDate,
 } from '../utils/clientPaymentCalculations';
@@ -25,7 +30,6 @@ export function ClientPaymentsPage() {
   const urlStatus = urlParams.get('status');
 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [showClientDetailModal, setShowClientDetailModal] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);
@@ -44,10 +48,83 @@ export function ClientPaymentsPage() {
   });
   const { showToast, ToastComponent } = useToast();
 
+  const top10Clients = useMemo(() => {
+    return getTop10Clients(clients, bookings, clientPaymentRecords);
+  }, [clients, bookings, clientPaymentRecords]);
+
   const selectedClient = useMemo(() => {
     if (!selectedClientId) return null;
     return clients.find((c) => c.id === selectedClientId) || null;
   }, [selectedClientId, clients]);
+
+  const selectedClientSummary = useMemo(() => {
+    if (!selectedClientId) return null;
+    const client = clients.find((c) => c.id === selectedClientId);
+    if (!client) return null;
+    return calculateClientSummary(selectedClientId, client.name, bookings, clientPaymentRecords);
+  }, [selectedClientId, clients, bookings, clientPaymentRecords]);
+
+  const selectedClientBookingAmounts = useMemo(() => {
+    if (!selectedClientId) return [];
+    return getClientBookings(selectedClientId, bookings, events, clientPaymentRecords);
+  }, [selectedClientId, bookings, events, clientPaymentRecords]);
+
+  const selectedClientPaymentHistory = useMemo(() => {
+    if (!selectedClientId) return [];
+    return getClientPayments(selectedClientId, clientPaymentRecords, bookings);
+  }, [selectedClientId, clientPaymentRecords, bookings]);
+
+  const selectedClientExpenses = useMemo(() => {
+    if (!selectedClientId) return [];
+    const clientBookingIds = bookings
+      .filter(b => b.client_id === selectedClientId)
+      .map(b => b.id);
+    return expenses.filter(e => e.booking_id && clientBookingIds.includes(e.booking_id));
+  }, [selectedClientId, bookings, expenses]);
+
+  const totalClientExpenses = useMemo(() => {
+    return selectedClientExpenses.reduce((sum, e) => sum + e.amount, 0);
+  }, [selectedClientExpenses]);
+
+  const selectedClientStaffPayments = useMemo(() => {
+    if (!selectedClientId) return [];
+
+    const clientBookingIds = bookings
+      .filter(b => b.client_id === selectedClientId)
+      .map(b => b.id);
+
+    const clientEventIds = events
+      .filter(e => clientBookingIds.includes(e.booking_id))
+      .map(e => e.id);
+
+    console.log('DEBUG: All staff payment records:', staffPaymentRecords);
+    console.log('DEBUG: Client ID:', selectedClientId);
+    console.log('DEBUG: Client booking IDs:', clientBookingIds);
+    console.log('DEBUG: Client event IDs:', clientEventIds);
+
+    const filtered = staffPaymentRecords.filter(sp =>
+      sp.event_id && clientEventIds.includes(sp.event_id)
+    );
+    console.log('DEBUG: Filtered staff payments:', filtered);
+
+    return filtered;
+  }, [selectedClientId, bookings, events, staffPaymentRecords]);
+
+  const totalStaffPayments = useMemo(() => {
+    return selectedClientStaffPayments.reduce((sum, sp) => sum + sp.amount, 0);
+  }, [selectedClientStaffPayments]);
+
+  const staffPaymentsPaid = useMemo(() => {
+    return selectedClientStaffPayments
+      .filter(sp => sp.type === 'made')
+      .reduce((sum, sp) => sum + sp.amount, 0);
+  }, [selectedClientStaffPayments]);
+
+  const staffPaymentsAgreed = useMemo(() => {
+    return selectedClientStaffPayments
+      .filter(sp => sp.type === 'agreed')
+      .reduce((sum, sp) => sum + sp.amount, 0);
+  }, [selectedClientStaffPayments]);
 
   const clientsWithBookings = useMemo(() => {
     return clients
@@ -55,35 +132,17 @@ export function ClientPaymentsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [clients, bookings]);
 
-  const getLastEventDate = (bookingId: string): Date | null => {
-    const bookingEvents = events.filter(e => e.booking_id === bookingId);
-    if (bookingEvents.length === 0) return null;
-
-    const lastEventDate = new Date(
-      Math.max(...bookingEvents.map(e => new Date(e.event_date).getTime()))
-    );
-    return lastEventDate;
-  };
-
-  const getDaysOverdue = (bookingId: string): number => {
+  const getDaysOverdue = (dateString: string): number => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const lastEventDate = getLastEventDate(bookingId);
-    if (!lastEventDate) return 0;
-
-    lastEventDate.setHours(0, 0, 0, 0);
-    const diff = today.getTime() - lastEventDate.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    return days > 0 ? days : 0;
+    const paymentDate = new Date(dateString);
+    paymentDate.setHours(0, 0, 0, 0);
+    const diff = today.getTime() - paymentDate.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
   };
 
   const filteredPayments = useMemo(() => {
     let filtered = [...clientPaymentRecords];
-
-    filtered = filtered.filter((payment, index, self) =>
-      index === self.findIndex(p => p.id === payment.id)
-    );
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -102,15 +161,9 @@ export function ClientPaymentsPage() {
     today.setHours(0, 0, 0, 0);
 
     if (statusFilter === 'overdue') {
-      filtered = filtered.filter((p) => {
-        if (p.payment_status !== 'agreed') return false;
-
-        const lastEventDate = getLastEventDate(p.booking_id);
-        if (!lastEventDate) return false;
-
-        lastEventDate.setHours(0, 0, 0, 0);
-        return lastEventDate < today;
-      });
+      filtered = filtered.filter(
+        (p) => p.payment_status === 'agreed' && new Date(p.payment_date) < today
+      );
     } else if (statusFilter === 'agreed') {
       filtered = filtered.filter((p) => p.payment_status === 'agreed');
     } else if (statusFilter === 'received') {
@@ -131,34 +184,16 @@ export function ClientPaymentsPage() {
   const overduePayments = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return filteredPayments.filter((p) => {
-      if (p.payment_status !== 'agreed') return false;
-
-      const lastEventDate = getLastEventDate(p.booking_id);
-      if (!lastEventDate) return false;
-
-      lastEventDate.setHours(0, 0, 0, 0);
-      return lastEventDate < today;
-    });
-  }, [filteredPayments, events]);
+    return filteredPayments.filter(
+      (p) => p.payment_status === 'agreed' && new Date(p.payment_date) < today
+    );
+  }, [filteredPayments]);
 
   const overdueTotal = useMemo(() => {
     return overduePayments.reduce((sum, p) => sum + p.amount, 0);
   }, [overduePayments]);
 
   const hasActiveFilters = statusFilter !== 'all' || clientFilter !== 'all' || bookingFilter !== 'all' || searchQuery !== '';
-
-  const totalOutstanding = useMemo(() => {
-    return filteredPayments
-      .filter(p => p.payment_status === 'agreed')
-      .reduce((sum, p) => sum + p.amount, 0);
-  }, [filteredPayments]);
-
-  const getClientOutstanding = (clientId: string): number => {
-    return clientPaymentRecords
-      .filter(p => p.client_id === clientId && p.payment_status === 'agreed')
-      .reduce((sum, p) => sum + p.amount, 0);
-  };
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -168,9 +203,9 @@ export function ClientPaymentsPage() {
     navigate('/client-payments');
   };
 
-  const handleClientRowClick = (clientId: string) => {
+  const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);
-    setShowClientDetailModal(true);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
 
   const handleAddPayment = async (formData: ClientPaymentFormData) => {
@@ -283,12 +318,11 @@ export function ClientPaymentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Client Payments</h1>
           <Button
             type="button"
             onClick={() => {
-              setSelectedClientId(null);
               setShowAddPaymentModal(true);
             }}
             className="bg-gray-900 hover:bg-gray-800"
@@ -377,113 +411,327 @@ export function ClientPaymentsPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Booking</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Event</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Outstanding</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredPayments.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                      No payments found matching filters
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPayments.map((payment) => {
-                    const client = clients.find((c) => c.id === payment.client_id);
-                    const booking = bookings.find((b) => b.id === payment.booking_id);
-                    const lastEventDate = getLastEventDate(payment.booking_id);
-                    const daysOverdue = getDaysOverdue(payment.booking_id);
-                    const isOverdue = payment.payment_status === 'agreed' && daysOverdue > 0;
-                    const clientOutstanding = getClientOutstanding(payment.client_id);
-
-                    return (
-                      <Fragment key={payment.id}>
-                        <tr
-                          onClick={() => handleClientRowClick(payment.client_id)}
-                          className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-medium text-gray-900">{client?.name}</div>
-                            <div className="text-xs text-gray-500">{client?.contact_number}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{booking?.booking_name || 'Unnamed'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{formatDate(payment.payment_date)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            {lastEventDate ? formatDate(lastEventDate.toISOString()) : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
-                            {formatCurrency(payment.amount)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">
-                            {formatCurrency(clientOutstanding)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                payment.payment_status === 'received'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-amber-100 text-amber-800'
-                              }`}
-                            >
-                              {payment.payment_status === 'received' ? 'Received' : 'Agreed'}
-                            </span>
-                          </td>
-                        </tr>
-                        {isOverdue && (
-                          <tr className="bg-amber-50">
-                            <td colSpan={7} className="px-4 py-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-amber-900">
-                                  <AlertTriangle size={14} />
-                                  <span className="text-xs font-medium">{daysOverdue} days overdue (since last event)</span>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        {!hasActiveFilters && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Clients by Outstanding Balance</h2>
+            {top10Clients.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-gray-500">No client payment records yet. Add a payment to get started.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {top10Clients.map((summary) => (
+                  <ClientSummaryCard
+                    key={summary.clientId}
+                    summary={summary}
+                    onClick={() => {
+                      setClientFilter(summary.clientId);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
+        )}
 
-          {filteredPayments.length > 0 && (
-            <div className="bg-gray-50 px-4 py-3 border-t-2 border-gray-200 flex items-center justify-between text-sm font-medium text-gray-700">
-              <span>Total: {filteredPayments.length} payment(s)</span>
-              <span>Total Outstanding: <span className="text-red-600 font-semibold">{formatCurrency(totalOutstanding)}</span></span>
-            </div>
-          )}
+        {hasActiveFilters && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {filteredPayments.length} Payment(s)
+              {statusFilter === 'overdue' && ' - Overdue'}
+            </h2>
+            {filteredPayments.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-gray-500">No payments found matching filters</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredPayments.map((payment) => {
+                  const client = clients.find((c) => c.id === payment.client_id);
+                  const booking = bookings.find((b) => b.id === payment.booking_id);
+                  const daysOverdue = getDaysOverdue(payment.payment_date);
+                  const isOverdue = payment.payment_status === 'agreed' && daysOverdue > 0;
+
+                  return (
+                    <div key={payment.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {client?.name} - {booking?.booking_name || 'Unnamed Booking'}
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">{client?.contact_number}</p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            payment.payment_status === 'received'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {payment.payment_status === 'received' ? 'Received' : 'Agreed'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Date</p>
+                          <p className="text-sm font-medium text-gray-900">{formatDate(payment.payment_date)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Amount</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatCurrency(payment.amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Method</p>
+                          <p className="text-sm text-gray-900 capitalize">
+                            {payment.payment_method ? payment.payment_method.replace('_', ' ') : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isOverdue && (
+                        <div className="mb-4 flex items-center gap-2 text-red-600">
+                          <AlertTriangle size={16} />
+                          <span className="text-sm font-semibold">{daysOverdue} days overdue</span>
+                        </div>
+                      )}
+
+                      {payment.remarks && (
+                        <div className="mb-4">
+                          <p className="text-xs text-gray-600 mb-1">Remarks</p>
+                          <p className="text-sm text-gray-700">{payment.remarks}</p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setSelectedClientId(payment.client_id);
+                            setClientFilter('all');
+                            setStatusFilter('all');
+                            setSearchQuery('');
+                            setBookingFilter('all');
+                            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                          }}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+                        >
+                          View Client Details
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayment(payment.id)}
+                          className="px-4 py-2 bg-red-50 hover:bg-red-100 rounded-lg text-sm font-medium text-red-600 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mb-8">
+          <label htmlFor="clientSelect" className="block text-sm font-medium text-gray-700 mb-2">
+            Search or Select Client:
+          </label>
+          <select
+            id="clientSelect"
+            value={selectedClientId || ''}
+            onChange={(e) => handleClientSelect(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+          >
+            <option value="">-- Select a client --</option>
+            {clientsWithBookings.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} - {c.contact_number}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
 
-      {showClientDetailModal && selectedClient && (
-        <ClientDetailModal
-          client={selectedClient}
-          onClose={() => {
-            setShowClientDetailModal(false);
-            setSelectedClientId(null);
-          }}
-          onAddPayment={() => setShowAddPaymentModal(true)}
-          onAddExpense={() => setShowExpenseModal(true)}
-          onAddStaffPayment={() => setShowStaffPaymentModal(true)}
-          onDeletePayment={handleDeletePayment}
-          onDeleteExpense={handleDeleteExpense}
-          onDeleteStaffPayment={handleDeleteStaffPayment}
-        />
-      )}
+        {selectedClient && selectedClientSummary && (
+          <>
+            <ClientDetailSection
+              client={selectedClient}
+              summary={selectedClientSummary}
+              bookingAmounts={selectedClientBookingAmounts}
+              paymentHistory={selectedClientPaymentHistory}
+              onAddPayment={() => setShowAddPaymentModal(true)}
+              onDeletePayment={handleDeletePayment}
+            />
+
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Expenses Incurred</h2>
+                <Button
+                  type="button"
+                  onClick={() => setShowExpenseModal(true)}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
+                >
+                  <Plus size={18} />
+                  Add Expense
+                </Button>
+              </div>
+
+              {selectedClientExpenses.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No expenses recorded for this client</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Booking</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Description</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Method</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Amount</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedClientExpenses.map((expense) => {
+                          const booking = bookings.find(b => b.id === expense.booking_id);
+                          return (
+                            <tr key={expense.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {formatDate(expense.date)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {booking?.booking_name || 'Unknown Booking'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{expense.description}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                                {expense.payment_method.replace('_', ' ')}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                {formatCurrency(expense.amount)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleDeleteExpense(expense.id)}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="Delete expense"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-gray-50 font-semibold">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-right text-gray-900">
+                            Total Expenses:
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-red-600 font-bold">
+                            {formatCurrency(totalClientExpenses)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg shadow-md p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Staff Payments</h2>
+                <Button
+                  type="button"
+                  onClick={() => setShowStaffPaymentModal(true)}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus size={18} />
+                  Add Staff Payment
+                </Button>
+              </div>
+
+              {selectedClientStaffPayments.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No staff payments recorded for this client</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full bg-white rounded-lg overflow-hidden">
+                      <thead className="bg-blue-100 border-b border-blue-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Staff</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Event</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Amount</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedClientStaffPayments.map((staffPayment) => {
+                          const staffMember = staff.find(s => s.id === staffPayment.staff_id);
+                          const event = events.find(e => e.id === staffPayment.event_id);
+                          return (
+                            <tr key={staffPayment.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {formatDate(staffPayment.payment_date)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {staffMember?.name || 'Unknown Staff'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {event?.event_name || '-'}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    staffPayment.type === 'made'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}
+                                >
+                                  {staffPayment.type === 'made' ? 'Paid' : 'Agreed'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                {formatCurrency(staffPayment.amount)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleDeleteStaffPayment(staffPayment.id)}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="Delete staff payment"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-blue-50 font-semibold">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-gray-900">
+                            <div className="flex justify-between">
+                              <span>Total Staff Payments:</span>
+                              <span className="text-xs text-gray-600">
+                                ({formatCurrency(staffPaymentsAgreed)} pending + {formatCurrency(staffPaymentsPaid)} paid)
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-blue-700 font-bold">
+                            {formatCurrency(totalStaffPayments)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+          </>
+        )}
+      </div>
 
       {showAddPaymentModal && (
         <Modal
@@ -497,7 +745,7 @@ export function ClientPaymentsPage() {
             clients={clients}
             bookings={bookings}
             clientPayments={clientPaymentRecords}
-            currentSummary={undefined}
+            currentSummary={selectedClientSummary || undefined}
             onSubmit={handleAddPayment}
             onCancel={() => setShowAddPaymentModal(false)}
           />
@@ -557,14 +805,14 @@ export function ClientPaymentsPage() {
         />
       )}
 
-      {showExpenseModal && (
+      {showExpenseModal && selectedClient && (
         <AddExpenseModal
           preSelectedBooking={null}
           onClose={() => setShowExpenseModal(false)}
         />
       )}
 
-      {showStaffPaymentModal && selectedClientId && (
+      {showStaffPaymentModal && selectedClient && (
         <AddStaffPaymentModal
           clientBookings={bookings.filter(b => b.client_id === selectedClientId)}
           onClose={() => setShowStaffPaymentModal(false)}
