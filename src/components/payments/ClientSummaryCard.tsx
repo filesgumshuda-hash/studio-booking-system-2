@@ -11,7 +11,13 @@ export function ClientSummaryCard({ summary, onClick }: ClientSummaryCardProps) 
       onClick={onClick}
       className="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 text-left w-full"
     >
-      <h3 className="font-bold text-base text-gray-900 mb-4">{summary.clientName}</h3>
+      <h3 className="font-bold text-base text-gray-900 mb-2">{summary.clientName}</h3>
+
+      {summary.dateRange && (
+        <div className="text-xs text-gray-500 mb-3">
+          {summary.dateRange}
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
@@ -28,14 +34,20 @@ export function ClientSummaryCard({ summary, onClick }: ClientSummaryCardProps) 
           </span>
         </div>
 
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Outstanding:</span>
-          <span
-            className={`text-base font-semibold ${getOutstandingColorClass(summary.outstanding)}`}
-          >
-            {formatCurrency(summary.outstanding)}
-          </span>
-        </div>
+        {summary.lastEventPassed ? (
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Outstanding:</span>
+            <span
+              className={`text-base font-semibold ${getOutstandingColorClass(summary.outstanding)}`}
+            >
+              {formatCurrency(summary.outstanding)}
+            </span>
+          </div>
+        ) : (
+          <div className="text-sm text-amber-600 font-medium italic">
+            Events not completed yet
+          </div>
+        )}
       </div>
 
       <div className="mt-4 pt-3 border-t border-gray-200">

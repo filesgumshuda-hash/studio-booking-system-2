@@ -7,6 +7,10 @@ export interface ClientSummary {
   totalAgreed: number;
   totalReceived: number;
   outstanding: number;
+  firstEventDate: string | null;
+  lastEventDate: string | null;
+  dateRange: string | null;
+  lastEventPassed: boolean;
 }
 
 export interface BookingAmount {
@@ -14,6 +18,9 @@ export interface BookingAmount {
   bookingName: string;
   eventCount: number;
   firstEventDate: string;
+  lastEventDate: string | null;
+  dateRange: string | null;
+  lastEventPassed: boolean;
   agreed: number;
   received: number;
   due: number;
@@ -54,11 +61,51 @@ export function getBookingBalance(bookingId: string, booking: Booking, payments:
   return Number(booking.package_amount || 0) - received;
 }
 
+export function getClientDateRange(
+  clientId: string,
+  bookings: Booking[],
+  events: Event[]
+): { firstDate: Date | null; lastDate: Date | null; dateRange: string | null } {
+  const clientBookings = bookings.filter((b) => b.client_id === clientId);
+  const allEventDates: Date[] = [];
+
+  clientBookings.forEach((booking) => {
+    const bookingEvents = events.filter((e) => e.booking_id === booking.id);
+    bookingEvents.forEach((event) => {
+      allEventDates.push(new Date(event.event_date));
+    });
+  });
+
+  if (allEventDates.length === 0) {
+    return { firstDate: null, lastDate: null, dateRange: null };
+  }
+
+  const firstDate = new Date(Math.min(...allEventDates.map((d) => d.getTime())));
+  const lastDate = new Date(Math.max(...allEventDates.map((d) => d.getTime())));
+
+  const dateRange = `${formatDate(firstDate.toISOString())} - ${formatDate(lastDate.toISOString())}`;
+
+  return { firstDate, lastDate, dateRange };
+}
+
+export function hasLastEventPassed(lastEventDate: Date | null): boolean {
+  if (!lastEventDate) return false;
+
+  const lastDate = new Date(lastEventDate);
+  lastDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return lastDate < today;
+}
+
 export function calculateClientSummary(
   clientId: string,
   clientName: string,
   bookings: Booking[],
-  payments: ClientPaymentRecord[]
+  payments: ClientPaymentRecord[],
+  events: Event[] = []
 ): ClientSummary {
   const packageAmount = bookings
     .filter(b => b.client_id === clientId)
@@ -74,6 +121,9 @@ export function calculateClientSummary(
 
   const outstanding = totalAgreed - totalReceived;
 
+  const dateRangeInfo = getClientDateRange(clientId, bookings, events);
+  const lastEventPassed = hasLastEventPassed(dateRangeInfo.lastDate);
+
   return {
     clientId,
     clientName,
@@ -81,19 +131,24 @@ export function calculateClientSummary(
     totalAgreed,
     totalReceived,
     outstanding,
+    firstEventDate: dateRangeInfo.firstDate ? dateRangeInfo.firstDate.toISOString() : null,
+    lastEventDate: dateRangeInfo.lastDate ? dateRangeInfo.lastDate.toISOString() : null,
+    dateRange: dateRangeInfo.dateRange,
+    lastEventPassed,
   };
 }
 
 export function getTop10Clients(
   clients: Client[],
   bookings: Booking[],
-  payments: ClientPaymentRecord[]
+  payments: ClientPaymentRecord[],
+  events: Event[] = []
 ): ClientSummary[] {
   const clientsWithPayments = clients
     .filter(c => {
       return bookings.some(b => b.client_id === c.id);
     })
-    .map((c) => calculateClientSummary(c.id, c.name, bookings, payments))
+    .map((c) => calculateClientSummary(c.id, c.name, bookings, payments, events))
     .filter((summary) => summary.totalAgreed > 0 || summary.totalReceived > 0);
 
   return clientsWithPayments
@@ -125,6 +180,23 @@ export function getClientBookings(
       new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
     );
     const firstEvent = sortedEvents[0];
+    const lastEvent = sortedEvents[sortedEvents.length - 1];
+
+    const firstEventDate = firstEvent?.event_date || booking.created_at;
+    const lastEventDate = lastEvent?.event_date || null;
+
+    let dateRange: string | null = null;
+    if (firstEvent && lastEvent) {
+      if (firstEvent.event_date === lastEvent.event_date) {
+        dateRange = formatDate(firstEvent.event_date);
+      } else {
+        dateRange = `${formatDate(firstEvent.event_date)} - ${formatDate(lastEvent.event_date)}`;
+      }
+    } else if (firstEvent) {
+      dateRange = formatDate(firstEvent.event_date);
+    }
+
+    const lastEventPassed = lastEventDate ? hasLastEventPassed(new Date(lastEventDate)) : false;
 
     const agreed = payments
       .filter((p) => p.booking_id === booking.id && p.payment_status === 'agreed')
@@ -140,7 +212,10 @@ export function getClientBookings(
       bookingId: booking.id,
       bookingName: booking.booking_name || `Booking ${booking.id.slice(0, 8)}`,
       eventCount,
-      firstEventDate: firstEvent?.event_date || booking.created_at,
+      firstEventDate,
+      lastEventDate,
+      dateRange,
+      lastEventPassed,
       agreed,
       received,
       due,

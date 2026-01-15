@@ -47,6 +47,12 @@ export function ClientDetailSection({
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-sm font-medium text-gray-600 mb-3">Summary:</h3>
         <div className="space-y-2">
+          {summary.dateRange && (
+            <div className="mb-2 pb-2 border-b border-gray-200">
+              <span className="text-gray-600">Event Period: </span>
+              <span className="text-base font-medium text-gray-700">{summary.dateRange}</span>
+            </div>
+          )}
           <div>
             <span className="text-gray-600">Total Agreed: </span>
             <span className="text-lg font-semibold text-gray-600">{formatCurrency(summary.totalAgreed)}</span>
@@ -55,12 +61,18 @@ export function ClientDetailSection({
             <span className="text-gray-600">Received: </span>
             <span className="text-lg font-semibold text-green-600">{formatCurrency(summary.totalReceived)}</span>
           </div>
-          <div>
-            <span className="text-gray-600">Outstanding: </span>
-            <span className={`text-lg font-semibold ${getOutstandingColorClass(summary.outstanding)}`}>
-              {formatCurrency(summary.outstanding)}
-            </span>
-          </div>
+          {summary.lastEventPassed ? (
+            <div>
+              <span className="text-gray-600">Outstanding: </span>
+              <span className={`text-lg font-semibold ${getOutstandingColorClass(summary.outstanding)}`}>
+                {formatCurrency(summary.outstanding)}
+              </span>
+            </div>
+          ) : (
+            <div className="text-sm text-blue-600 italic">
+              Payment due after last event ({summary.lastEventDate ? formatDate(summary.lastEventDate) : 'TBD'})
+            </div>
+          )}
         </div>
       </div>
 
@@ -80,7 +92,7 @@ export function ClientDetailSection({
                     Events
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                    First Event
+                    Event Period
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
                     Agreed
@@ -100,15 +112,23 @@ export function ClientDetailSection({
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {ba.eventCount}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(ba.firstEventDate)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {ba.dateRange || formatDate(ba.firstEventDate)}
+                    </td>
                     <td className="px-4 py-3 text-sm font-semibold text-right text-gray-600">
                       {formatCurrency(ba.agreed)}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-right text-green-600">
                       {formatCurrency(ba.received)}
                     </td>
-                    <td className={`px-4 py-3 text-sm font-semibold text-right ${getOutstandingColorClass(ba.due)}`}>
-                      {formatCurrency(ba.due)}
+                    <td className="px-4 py-3 text-sm text-right">
+                      {ba.lastEventPassed ? (
+                        <span className={`font-semibold ${getOutstandingColorClass(ba.due)}`}>
+                          {formatCurrency(ba.due)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 italic">Pending</span>
+                      )}
                     </td>
                   </tr>
                 ))}

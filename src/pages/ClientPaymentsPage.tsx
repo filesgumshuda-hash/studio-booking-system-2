@@ -38,8 +38,8 @@ export function ClientPaymentsPage() {
   const { showToast, ToastComponent } = useToast();
 
   const top10Clients = useMemo(() => {
-    return getTop10Clients(clients, bookings, clientPaymentRecords);
-  }, [clients, bookings, clientPaymentRecords]);
+    return getTop10Clients(clients, bookings, clientPaymentRecords, events);
+  }, [clients, bookings, clientPaymentRecords, events]);
 
   const selectedClient = useMemo(() => {
     if (!selectedClientId) return null;
@@ -50,8 +50,8 @@ export function ClientPaymentsPage() {
     if (!selectedClientId) return null;
     const client = clients.find((c) => c.id === selectedClientId);
     if (!client) return null;
-    return calculateClientSummary(selectedClientId, client.name, bookings, clientPaymentRecords);
-  }, [selectedClientId, clients, bookings, clientPaymentRecords]);
+    return calculateClientSummary(selectedClientId, client.name, bookings, clientPaymentRecords, events);
+  }, [selectedClientId, clients, bookings, clientPaymentRecords, events]);
 
   const selectedClientBookingAmounts = useMemo(() => {
     if (!selectedClientId) return [];
