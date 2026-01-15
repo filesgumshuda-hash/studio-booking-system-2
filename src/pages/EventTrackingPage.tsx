@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { WorkflowStep } from '../components/tracking/WorkflowStep';
@@ -21,10 +21,14 @@ interface EnrichedBooking {
 
 export function EventTrackingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { bookings, events, clients, workflows, staffAssignments, staff } = useAppData();
 
+  const filterParam = searchParams.get('filter');
   const [searchQuery, setSearchQuery] = useState('');
-  const [timeFilter, setTimeFilter] = useState<'active' | 'past' | 'all'>('active');
+  const [timeFilter, setTimeFilter] = useState<'active' | 'past' | 'all'>(
+    filterParam === 'past' || filterParam === 'all' ? filterParam : 'active'
+  );
   const [sortBy, setSortBy] = useState('date-asc');
   const [hideCompleted, setHideCompleted] = useState(false);
 

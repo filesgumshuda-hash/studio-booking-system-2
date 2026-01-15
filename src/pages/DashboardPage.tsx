@@ -272,7 +272,7 @@ export function DashboardPage() {
 
           <div
             className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
-            onClick={() => navigate('/tracking')}
+            onClick={() => navigate('/tracking?filter=past')}
           >
             <div
               className="text-xs text-gray-600 mb-2 cursor-help border-b border-dotted border-gray-400 inline-block"
