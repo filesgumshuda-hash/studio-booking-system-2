@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useAppData, ClientPaymentRecord } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { Modal } from '../components/common/Modal';
@@ -80,6 +80,10 @@ export function ClientPaymentsPage() {
 
   const filteredPayments = useMemo(() => {
     let filtered = [...clientPaymentRecords];
+
+    filtered = filtered.filter((payment, index, self) =>
+      index === self.findIndex(p => p.id === payment.id)
+    );
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -404,9 +408,8 @@ export function ClientPaymentsPage() {
                     const clientOutstanding = getClientOutstanding(payment.client_id);
 
                     return (
-                      <>
+                      <Fragment key={payment.id}>
                         <tr
-                          key={payment.id}
                           onClick={() => handleClientRowClick(payment.client_id)}
                           className="hover:bg-gray-50 cursor-pointer transition-colors"
                         >
@@ -449,7 +452,7 @@ export function ClientPaymentsPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })
                 )}
