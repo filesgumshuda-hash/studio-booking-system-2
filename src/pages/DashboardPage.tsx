@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { AlertTriangle, DollarSign, Users, Receipt } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -225,7 +225,7 @@ export function DashboardPage() {
 
           <div
             className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
-            onClick={() => navigate('/client-payments?status=overdue')}
+            onClick={() => navigate('/client-payments')}
           >
             <div className="text-xs text-gray-600 mb-2">Overdue</div>
             <div className="text-2xl font-semibold text-gray-900">{stats.overduePayments}</div>
@@ -295,38 +295,6 @@ export function DashboardPage() {
               </span>
             </div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-          <button
-            onClick={() => navigate('/client-payments')}
-            className="flex items-center gap-3 bg-white border-l-4 border-green-500 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer"
-          >
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <DollarSign className="text-green-600" size={20} />
-            </div>
-            <span className="text-sm font-medium text-gray-900">Client Payments</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/payments')}
-            className="flex items-center gap-3 bg-white border-l-4 border-blue-500 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer"
-          >
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="text-blue-600" size={20} />
-            </div>
-            <span className="text-sm font-medium text-gray-900">Staff Payments</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/expenses')}
-            className="flex items-center gap-3 bg-white border-l-4 border-red-500 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer"
-          >
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <Receipt className="text-red-600" size={20} />
-            </div>
-            <span className="text-sm font-medium text-gray-900">Expenses</span>
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
