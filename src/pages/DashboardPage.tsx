@@ -225,7 +225,7 @@ export function DashboardPage() {
 
           <div
             className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
-            onClick={() => navigate('/client-payments')}
+            onClick={() => navigate('/client-payments?status=overdue')}
           >
             <div className="text-xs text-gray-600 mb-2">Overdue</div>
             <div className="text-2xl font-semibold text-gray-900">{stats.overduePayments}</div>

@@ -10,7 +10,8 @@ import { ClientDetailSection } from '../components/payments/ClientDetailSection'
 import { AddClientPaymentForm, ClientPaymentFormData } from '../components/payments/AddClientPaymentForm';
 import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
 import { AddStaffPaymentModal } from '../components/payments/AddStaffPaymentModal';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Search, AlertTriangle, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   getTop10Clients,
   calculateClientSummary,
@@ -21,11 +22,21 @@ import {
 } from '../utils/clientPaymentCalculations';
 
 export function ClientPaymentsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { clients, bookings, events, clientPaymentRecords, expenses, staffPaymentRecords, staff, dispatch } = useAppData();
+
+  const urlParams = new URLSearchParams(location.search);
+  const urlStatus = urlParams.get('status');
+
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(urlStatus || 'all');
+  const [clientFilter, setClientFilter] = useState('all');
+  const [bookingFilter, setBookingFilter] = useState('all');
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     paymentId: string;
@@ -120,6 +131,77 @@ export function ClientPaymentsPage() {
       .filter((c) => bookings.some((b) => b.client_id === c.id))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [clients, bookings]);
+
+  const getDaysOverdue = (dateString: string): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const paymentDate = new Date(dateString);
+    paymentDate.setHours(0, 0, 0, 0);
+    const diff = today.getTime() - paymentDate.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const filteredPayments = useMemo(() => {
+    let filtered = [...clientPaymentRecords];
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((p) => {
+        const client = clients.find((c) => c.id === p.client_id);
+        const booking = bookings.find((b) => b.id === p.booking_id);
+        return (
+          client?.name.toLowerCase().includes(query) ||
+          booking?.booking_name?.toLowerCase().includes(query) ||
+          client?.contact_number?.includes(query)
+        );
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (statusFilter === 'overdue') {
+      filtered = filtered.filter(
+        (p) => p.payment_status === 'agreed' && new Date(p.payment_date) < today
+      );
+    } else if (statusFilter === 'agreed') {
+      filtered = filtered.filter((p) => p.payment_status === 'agreed');
+    } else if (statusFilter === 'received') {
+      filtered = filtered.filter((p) => p.payment_status === 'received');
+    }
+
+    if (clientFilter !== 'all') {
+      filtered = filtered.filter((p) => p.client_id === clientFilter);
+    }
+
+    if (bookingFilter !== 'all') {
+      filtered = filtered.filter((p) => p.booking_id === bookingFilter);
+    }
+
+    return filtered.sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
+  }, [clientPaymentRecords, searchQuery, statusFilter, clientFilter, bookingFilter, clients, bookings]);
+
+  const overduePayments = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return filteredPayments.filter(
+      (p) => p.payment_status === 'agreed' && new Date(p.payment_date) < today
+    );
+  }, [filteredPayments]);
+
+  const overdueTotal = useMemo(() => {
+    return overduePayments.reduce((sum, p) => sum + p.amount, 0);
+  }, [overduePayments]);
+
+  const hasActiveFilters = statusFilter !== 'all' || clientFilter !== 'all' || bookingFilter !== 'all' || searchQuery !== '';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setClientFilter('all');
+    setBookingFilter('all');
+    navigate('/client-payments');
+  };
 
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -249,24 +331,207 @@ export function ClientPaymentsPage() {
           </Button>
         </div>
 
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Clients by Outstanding Balance</h2>
-          {top10Clients.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <p className="text-gray-500">No client payment records yet. Add a payment to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {top10Clients.map((summary) => (
-                <ClientSummaryCard
-                  key={summary.clientId}
-                  summary={summary}
-                  onClick={() => handleClientSelect(summary.clientId)}
-                />
-              ))}
-            </div>
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search by client name, booking, or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+          </div>
+        </div>
+
+        <div className="mb-6 flex flex-wrap gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+          >
+            <option value="all">All Status</option>
+            <option value="overdue">Overdue</option>
+            <option value="agreed">Agreed</option>
+            <option value="received">Received</option>
+          </select>
+
+          <select
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm min-w-[200px]"
+          >
+            <option value="all">All Clients</option>
+            {clientsWithBookings.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={bookingFilter}
+            onChange={(e) => setBookingFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm min-w-[200px]"
+          >
+            <option value="all">All Bookings</option>
+            {bookings.map((b) => {
+              const client = clients.find((c) => c.id === b.client_id);
+              return (
+                <option key={b.id} value={b.id}>
+                  {client?.name} - {b.booking_name || 'Unnamed Booking'}
+                </option>
+              );
+            })}
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 transition-colors flex items-center gap-2"
+            >
+              <X size={16} />
+              Clear Filters
+            </button>
           )}
         </div>
+
+        {statusFilter === 'overdue' && overduePayments.length > 0 && (
+          <div className="mb-6 flex items-center gap-3 bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
+            <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+            <span className="flex-1 text-sm text-amber-900 font-medium">
+              {overduePayments.length} overdue payment(s) • Total: {formatCurrency(overdueTotal)}
+            </span>
+            <button
+              onClick={() => setStatusFilter('all')}
+              className="text-sm text-amber-900 hover:underline font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        {!hasActiveFilters && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Clients by Outstanding Balance</h2>
+            {top10Clients.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-gray-500">No client payment records yet. Add a payment to get started.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {top10Clients.map((summary) => (
+                  <ClientSummaryCard
+                    key={summary.clientId}
+                    summary={summary}
+                    onClick={() => {
+                      setClientFilter(summary.clientId);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {hasActiveFilters && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {filteredPayments.length} Payment(s)
+              {statusFilter === 'overdue' && ' - Overdue'}
+            </h2>
+            {filteredPayments.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-gray-500">No payments found matching filters</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredPayments.map((payment) => {
+                  const client = clients.find((c) => c.id === payment.client_id);
+                  const booking = bookings.find((b) => b.id === payment.booking_id);
+                  const daysOverdue = getDaysOverdue(payment.payment_date);
+                  const isOverdue = payment.payment_status === 'agreed' && daysOverdue > 0;
+
+                  return (
+                    <div key={payment.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {client?.name} - {booking?.booking_name || 'Unnamed Booking'}
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">{client?.contact_number}</p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            payment.payment_status === 'received'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {payment.payment_status === 'received' ? 'Received' : 'Agreed'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Date</p>
+                          <p className="text-sm font-medium text-gray-900">{formatDate(payment.payment_date)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Amount</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatCurrency(payment.amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Method</p>
+                          <p className="text-sm text-gray-900 capitalize">
+                            {payment.payment_method ? payment.payment_method.replace('_', ' ') : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isOverdue && (
+                        <div className="mb-4 flex items-center gap-2 text-red-600">
+                          <AlertTriangle size={16} />
+                          <span className="text-sm font-semibold">{daysOverdue} days overdue</span>
+                        </div>
+                      )}
+
+                      {payment.remarks && (
+                        <div className="mb-4">
+                          <p className="text-xs text-gray-600 mb-1">Remarks</p>
+                          <p className="text-sm text-gray-700">{payment.remarks}</p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setSelectedClientId(payment.client_id);
+                            setClientFilter('all');
+                            setStatusFilter('all');
+                            setSearchQuery('');
+                            setBookingFilter('all');
+                            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                          }}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+                        >
+                          View Client Details
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayment(payment.id)}
+                          className="px-4 py-2 bg-red-50 hover:bg-red-100 rounded-lg text-sm font-medium text-red-600 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mb-8">
           <label htmlFor="clientSelect" className="block text-sm font-medium text-gray-700 mb-2">
