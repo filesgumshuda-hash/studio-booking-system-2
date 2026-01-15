@@ -69,27 +69,18 @@ export function DashboardPage() {
       (e) => e.event_date >= thisMonthStartString && e.event_date <= thisMonthEndString
     ).length;
 
-    const pendingTasks = workflows.reduce((count, w) => {
-      const event = events.find(e => e.id === w.event_id);
-      if (!event) return count;
+    const todayForComparison = new Date();
+    todayForComparison.setHours(0, 0, 0, 0);
 
-      const booking = bookings.find(b => b.id === event.booking_id);
+    const pendingTasks = workflows.reduce((count, w) => {
+      const booking = bookings.find(b => b.id === w.booking_id);
       if (!booking) return count;
 
       const bookingEvents = events.filter(e => e.booking_id === booking.id);
       if (bookingEvents.length === 0) return count;
 
-      const sortedEvents = bookingEvents.sort((a, b) =>
-        new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
-      );
-      const lastEvent = sortedEvents[0];
-      const lastEventDate = new Date(lastEvent.event_date);
-      lastEventDate.setHours(0, 0, 0, 0);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (lastEventDate >= today) return count;
+      const allEventsPassed = bookingEvents.every(e => new Date(e.event_date) < todayForComparison);
+      if (!allEventsPassed) return count;
 
       const stillPending = Object.values(w.still_workflow || {}).filter(
         (s: any) => !s?.completed && !s?.notApplicable
