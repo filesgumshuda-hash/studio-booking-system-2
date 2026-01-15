@@ -85,9 +85,21 @@ export function DashboardPage() {
       return count + stillPending + reelPending + videoPending + portraitPending;
     }, 0);
 
-    const overduePayments = clientPaymentRecords.filter((p) => {
-      if (p.payment_status === 'received') return false;
-      return new Date(p.payment_date) < new Date();
+    const overdueBookings = bookings.filter((b) => {
+      const bookingEvents = events.filter(e => e.booking_id === b.id);
+      if (bookingEvents.length === 0) return false;
+
+      const sortedEvents = bookingEvents.sort((a, b) =>
+        new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+      );
+      const lastEvent = sortedEvents[0];
+      const lastEventDate = new Date(lastEvent.event_date);
+      lastEventDate.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return lastEventDate < today;
     }).length;
 
     const thisMonthExpenses = expenses
@@ -104,10 +116,10 @@ export function DashboardPage() {
       activeBookings: activeBookingsCount,
       eventsThisMonth,
       pendingTasks,
-      overduePayments,
+      overdueBookings,
       thisMonthExpenses,
     };
-  }, [bookings, events, workflows, clientPaymentRecords, expenses, todayString]);
+  }, [bookings, events, workflows, expenses, todayString]);
 
   const financeStats = useMemo(() => {
     const totalRevenue = clientPaymentRecords
@@ -247,8 +259,13 @@ export function DashboardPage() {
             className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
             onClick={() => navigate('/client-payments')}
           >
-            <div className="text-xs text-gray-600 mb-2">Overdue</div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.overduePayments}</div>
+            <div
+              className="text-xs text-gray-600 mb-2 cursor-help border-b border-dotted border-gray-400 inline-block"
+              title="Number of bookings whose last event date has already passed"
+            >
+              Overdue
+            </div>
+            <div className="text-2xl font-semibold text-gray-900">{stats.overdueBookings}</div>
           </div>
 
           <div
