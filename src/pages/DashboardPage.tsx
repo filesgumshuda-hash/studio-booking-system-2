@@ -70,6 +70,27 @@ export function DashboardPage() {
     ).length;
 
     const pendingTasks = workflows.reduce((count, w) => {
+      const event = events.find(e => e.id === w.event_id);
+      if (!event) return count;
+
+      const booking = bookings.find(b => b.id === event.booking_id);
+      if (!booking) return count;
+
+      const bookingEvents = events.filter(e => e.booking_id === booking.id);
+      if (bookingEvents.length === 0) return count;
+
+      const sortedEvents = bookingEvents.sort((a, b) =>
+        new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+      );
+      const lastEvent = sortedEvents[0];
+      const lastEventDate = new Date(lastEvent.event_date);
+      lastEventDate.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (lastEventDate >= today) return count;
+
       const stillPending = Object.values(w.still_workflow || {}).filter(
         (s: any) => !s?.completed && !s?.notApplicable
       ).length;
@@ -262,7 +283,12 @@ export function DashboardPage() {
             className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
             onClick={() => navigate('/tracking')}
           >
-            <div className="text-xs text-gray-600 mb-2">Tasks</div>
+            <div
+              className="text-xs text-gray-600 mb-2 cursor-help border-b border-dotted border-gray-400 inline-block"
+              title="Pending workflow tasks for bookings whose last event has passed"
+            >
+              Tasks
+            </div>
             <div className="text-2xl font-semibold text-gray-900">{stats.pendingTasks}</div>
           </div>
 
