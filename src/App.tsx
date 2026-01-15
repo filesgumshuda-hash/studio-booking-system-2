@@ -13,6 +13,7 @@ import { StaffPage } from './pages/StaffPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { NewPaymentsPage } from './pages/NewPaymentsPage';
 import { ClientPaymentsPage } from './pages/ClientPaymentsPage';
+import { ExpensesPage } from './pages/ExpensesPage';
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
@@ -112,6 +113,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <ClientPaymentsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ExpensesPage />
           </ProtectedRoute>
         }
       />

@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../common/Card';
 import { useAppData } from '../../context/AppContext';
 
 export function ExpensesWidget() {
+  const navigate = useNavigate();
   const { expenses } = useAppData();
 
   const thisMonth = new Date();
@@ -20,7 +22,10 @@ export function ExpensesWidget() {
     .reduce((sum, e) => sum + e.amount, 0);
 
   return (
-    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+    <Card
+      className="hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={() => navigate('/expenses')}
+    >
       <div className="flex items-center gap-3 mb-4">
         <div className="text-3xl">💸</div>
         <div>
