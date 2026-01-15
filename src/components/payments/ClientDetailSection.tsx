@@ -61,18 +61,12 @@ export function ClientDetailSection({
             <span className="text-gray-600">Received: </span>
             <span className="text-lg font-semibold text-green-600">{formatCurrency(summary.totalReceived)}</span>
           </div>
-          {summary.lastEventPassed ? (
-            <div>
-              <span className="text-gray-600">Outstanding: </span>
-              <span className={`text-lg font-semibold ${getOutstandingColorClass(summary.outstanding)}`}>
-                {formatCurrency(summary.outstanding)}
-              </span>
-            </div>
-          ) : (
-            <div className="text-sm text-blue-600 italic">
-              Payment due after last event ({summary.lastEventDate ? formatDate(summary.lastEventDate) : 'TBD'})
-            </div>
-          )}
+          <div>
+            <span className="text-gray-600">Outstanding: </span>
+            <span className={`text-lg font-semibold ${getOutstandingColorClass(summary.outstanding)}`}>
+              {formatCurrency(summary.outstanding)}
+            </span>
+          </div>
         </div>
       </div>
 
