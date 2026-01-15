@@ -99,7 +99,18 @@ export function DashboardPage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      return lastEventDate < today;
+      if (lastEventDate >= today) return false;
+
+      const bookingPayments = clientPaymentRecords.filter((p) => p.booking_id === b.id);
+      const agreed = bookingPayments
+        .filter((p) => p.payment_status === 'agreed')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      const received = bookingPayments
+        .filter((p) => p.payment_status === 'received')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      const due = agreed - received;
+
+      return due > 0;
     }).length;
 
     const thisMonthExpenses = expenses
@@ -119,7 +130,7 @@ export function DashboardPage() {
       overdueBookings,
       thisMonthExpenses,
     };
-  }, [bookings, events, workflows, expenses, todayString]);
+  }, [bookings, events, workflows, expenses, clientPaymentRecords, todayString]);
 
   const financeStats = useMemo(() => {
     const totalRevenue = clientPaymentRecords
@@ -261,7 +272,7 @@ export function DashboardPage() {
           >
             <div
               className="text-xs text-gray-600 mb-2 cursor-help border-b border-dotted border-gray-400 inline-block"
-              title="Number of bookings whose last event date has already passed"
+              title="Bookings with last event date passed and outstanding payments due"
             >
               Overdue
             </div>
