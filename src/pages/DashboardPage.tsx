@@ -1,36 +1,55 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Users, Clipboard, DollarSign, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
-import { Card } from '../components/common/Card';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { Button } from '../components/common/Button';
 import { useAppData } from '../context/AppContext';
-import { detectConflicts, formatDate, getBookingStatus, getWorkflowProgress } from '../utils/helpers';
-import { FinancialOverviewWidget } from '../components/dashboard/FinancialOverviewWidget';
-import { QuickStatsWidget } from '../components/dashboard/QuickStatsWidget';
-import { RecentActivityWidget } from '../components/dashboard/RecentActivityWidget';
-import { PaymentQuickAccess } from '../components/dashboard/PaymentQuickAccess';
-import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
-import { OverduePaymentsModal } from '../components/dashboard/OverduePaymentsModal';
-import { ExpensesWidget } from '../components/dashboard/ExpensesWidget';
-import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
+import { detectConflicts, formatDate } from '../utils/helpers';
+import { AlertTriangle } from 'lucide-react';
+
+function formatAmount(amount: number): string {
+  if (amount >= 100000) {
+    return `${(amount / 100000).toFixed(1)}L`;
+  } else if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(1)}K`;
+  }
+  return amount.toLocaleString('en-IN');
+}
+
+function getRelativeTime(dateString: string): string {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diff = now.getTime() - date.getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return formatDate(dateString);
+}
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { bookings, events, clients, staff, staffAssignments, workflows, payments } = useAppData();
-  const [showDataModal, setShowDataModal] = useState(false);
-  const [showOverdueModal, setShowOverdueModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const {
+    bookings,
+    events,
+    clients,
+    staff,
+    staffAssignments,
+    workflows,
+    clientPaymentRecords,
+    expenses,
+    staffPayments,
+  } = useAppData();
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 
   const stats = useMemo(() => {
-    const activeBookingsCount = bookings.filter(b => {
-      const bookingEvents = events.filter(e => e.booking_id === b.id);
-      const hasUpcomingEvents = bookingEvents.some(e => e.event_date >= todayString);
-      const bookingWorkflows = workflows.filter(w => bookingEvents.some(e => e.id === w.event_id));
-      const hasActiveWorkflow = bookingWorkflows.some(w => {
+    const activeBookingsCount = bookings.filter((b) => {
+      const bookingEvents = events.filter((e) => e.booking_id === b.id);
+      const hasUpcomingEvents = bookingEvents.some((e) => e.event_date >= todayString);
+      const bookingWorkflows = workflows.filter((w) =>
+        bookingEvents.some((e) => e.id === w.event_id)
+      );
+      const hasActiveWorkflow = bookingWorkflows.some((w) => {
         const allDelivered =
           w.still_workflow?.deliveredToClient?.completed &&
           w.reel_workflow?.reelDelivered?.completed &&
@@ -46,304 +65,276 @@ export function DashboardPage() {
     const thisMonthStartString = `${thisMonthStart.getFullYear()}-${(thisMonthStart.getMonth() + 1).toString().padStart(2, '0')}-01`;
     const thisMonthEndString = `${thisMonthEnd.getFullYear()}-${(thisMonthEnd.getMonth() + 1).toString().padStart(2, '0')}-${thisMonthEnd.getDate().toString().padStart(2, '0')}`;
 
-    const eventsThisMonth = events.filter(e => e.event_date >= thisMonthStartString && e.event_date <= thisMonthEndString).length;
+    const eventsThisMonth = events.filter(
+      (e) => e.event_date >= thisMonthStartString && e.event_date <= thisMonthEndString
+    ).length;
 
     const pendingTasks = workflows.reduce((count, w) => {
-      const stillPending = Object.values(w.still_workflow || {}).filter((s: any) => !s?.completed).length;
-      const reelPending = Object.values(w.reel_workflow || {}).filter((s: any) => !s?.completed).length;
-      const videoPending = Object.values(w.video_workflow || {}).filter((s: any) => !s?.completed).length;
-      const portraitPending = Object.values(w.portrait_workflow || {}).filter((s: any) => !s?.completed).length;
+      const stillPending = Object.values(w.still_workflow || {}).filter(
+        (s: any) => !s?.completed && !s?.notApplicable
+      ).length;
+      const reelPending = Object.values(w.reel_workflow || {}).filter(
+        (s: any) => !s?.completed && !s?.notApplicable
+      ).length;
+      const videoPending = Object.values(w.video_workflow || {}).filter(
+        (s: any) => !s?.completed && !s?.notApplicable
+      ).length;
+      const portraitPending = Object.values(w.portrait_workflow || {}).filter(
+        (s: any) => !s?.completed && !s?.notApplicable
+      ).length;
       return count + stillPending + reelPending + videoPending + portraitPending;
     }, 0);
 
-    const overduePayments = payments.filter(p => {
-      if (p.status === 'paid') return false;
-      const event = events.find(e => e.id === p.event_id);
-      if (!event) return false;
-      const eventDate = new Date(event.event_date);
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      return eventDate < thirtyDaysAgo;
-    });
-
-    const overdueAmount = overduePayments.reduce((sum, p) => sum + (p.agreed_amount - p.amount_paid), 0);
-
-    const dataNotReceivedCount = staffAssignments.filter(sa => {
-      const event = events.find(e => e.id === sa.event_id);
-      if (!event) return false;
-      const isPastEvent = event.event_date < todayString;
-      return isPastEvent && !(sa as any).data_received;
+    const overduePayments = clientPaymentRecords.filter((p) => {
+      if (p.payment_status === 'received') return false;
+      return new Date(p.payment_date) < new Date();
     }).length;
+
+    const thisMonthExpenses = expenses
+      .filter((e) => {
+        const expDate = new Date(e.date);
+        return (
+          expDate.getMonth() === today.getMonth() &&
+          expDate.getFullYear() === today.getFullYear()
+        );
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
 
     return {
       activeBookings: activeBookingsCount,
       eventsThisMonth,
       pendingTasks,
-      overduePayments: overduePayments.length,
-      overdueAmount,
-      dataNotReceived: dataNotReceivedCount,
+      overduePayments,
+      thisMonthExpenses,
     };
-  }, [bookings, events, workflows, payments, staffAssignments, todayString]);
+  }, [bookings, events, workflows, clientPaymentRecords, expenses, todayString]);
 
-  const todaysEvents = useMemo(() => {
-    return events
-      .filter(e => e.event_date === todayString)
-      .map(event => {
-        const booking = bookings.find(b => b.id === event.booking_id);
-        const client = clients.find(c => c.id === booking?.client_id);
-        const eventAssignments = staffAssignments.filter(sa => sa.event_id === event.id);
-        const assignedStaff = eventAssignments.map(sa => {
-          const staffMember = staff.find(s => s.id === sa.staff_id);
-          return staffMember?.name;
-        }).filter(Boolean);
-        return {
-          ...event,
-          clientName: client?.name || 'Unknown',
-          assignedStaff,
-        };
+  const financeStats = useMemo(() => {
+    const totalRevenue = clientPaymentRecords
+      .filter((p) => p.payment_status === 'received')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = totalRevenue - totalExpenses;
+
+    const outstanding = clientPaymentRecords
+      .filter((p) => p.payment_status === 'agreed')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const staffDue = staffPayments
+      .filter((sp) => sp.status === 'agreed')
+      .reduce((sum, sp) => sum + sp.amount, 0);
+
+    return {
+      revenue: totalRevenue,
+      expenses: totalExpenses,
+      profit: netProfit,
+      outstanding,
+      staffDue,
+    };
+  }, [clientPaymentRecords, expenses, staffPayments]);
+
+  const scheduleStats = useMemo(() => {
+    const todayEvents = events.filter((e) => e.event_date === todayString).length;
+
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    const weekStartString = `${weekStart.getFullYear()}-${(weekStart.getMonth() + 1).toString().padStart(2, '0')}-${weekStart.getDate().toString().padStart(2, '0')}`;
+    const weekEndString = `${weekEnd.getFullYear()}-${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}-${weekEnd.getDate().toString().padStart(2, '0')}`;
+
+    const thisWeekEvents = events.filter(
+      (e) => e.event_date >= weekStartString && e.event_date <= weekEndString
+    ).length;
+
+    return {
+      today: todayEvents,
+      thisWeek: thisWeekEvents,
+    };
+  }, [events, todayString]);
+
+  const recentActivity = useMemo(() => {
+    const activities: Array<{ text: string; time: string; timestamp: Date }> = [];
+
+    bookings
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+      .forEach((b) => {
+        const client = clients.find((c) => c.id === b.client_id);
+        activities.push({
+          text: `New booking: ${client?.name || 'Unknown'} - ${b.booking_name || 'Unnamed'}`,
+          time: getRelativeTime(b.created_at),
+          timestamp: new Date(b.created_at),
+        });
       });
-  }, [events, bookings, clients, staff, staffAssignments, todayString]);
 
-  const upcomingWeekEvents = useMemo(() => {
-    const weekFromNow = new Date(today);
-    weekFromNow.setDate(weekFromNow.getDate() + 7);
-    const weekString = `${weekFromNow.getFullYear()}-${(weekFromNow.getMonth() + 1).toString().padStart(2, '0')}-${weekFromNow.getDate().toString().padStart(2, '0')}`;
-
-    return events
-      .filter(e => e.event_date >= todayString && e.event_date <= weekString)
-      .sort((a, b) => a.event_date.localeCompare(b.event_date))
-      .slice(0, 5)
-      .map(event => {
-        const booking = bookings.find(b => b.id === event.booking_id);
-        const client = clients.find(c => c.id === booking?.client_id);
-        return {
-          ...event,
-          clientName: client?.name || 'Unknown',
-        };
+    events
+      .filter((e) => e.event_date < todayString)
+      .slice()
+      .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
+      .slice(0, 2)
+      .forEach((e) => {
+        const booking = bookings.find((b) => b.id === e.booking_id);
+        const client = clients.find((c) => c.id === booking?.client_id);
+        activities.push({
+          text: `Event completed: ${client?.name || 'Unknown'} - ${e.event_name}`,
+          time: formatDate(e.event_date),
+          timestamp: new Date(e.event_date),
+        });
       });
-  }, [events, bookings, clients, todayString]);
+
+    return activities
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 5);
+  }, [bookings, events, clients, todayString]);
 
   const { conflicts, shortages } = detectConflicts(events, staffAssignments, staff);
+  const staffShortages = shortages.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Welcome to WedRing Studios Management System</p>
+      <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6 lg:py-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+          <div
+            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            onClick={() => navigate('/bookings')}
+          >
+            <div className="text-xs text-gray-600 mb-2">Bookings</div>
+            <div className="text-2xl font-semibold text-gray-900">{stats.activeBookings}</div>
+          </div>
+
+          <div
+            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            onClick={() => navigate('/calendar')}
+          >
+            <div className="text-xs text-gray-600 mb-2">Events</div>
+            <div className="text-2xl font-semibold text-gray-900">{stats.eventsThisMonth}</div>
+          </div>
+
+          <div
+            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            onClick={() => navigate('/tracking')}
+          >
+            <div className="text-xs text-gray-600 mb-2">Tasks</div>
+            <div className="text-2xl font-semibold text-gray-900">{stats.pendingTasks}</div>
+          </div>
+
+          <div
+            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            onClick={() => navigate('/client-payments')}
+          >
+            <div className="text-xs text-gray-600 mb-2">Overdue</div>
+            <div className="text-2xl font-semibold text-gray-900">{stats.overduePayments}</div>
+          </div>
+
+          <div
+            className="bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-200 transition-colors"
+            onClick={() => navigate('/expenses')}
+          >
+            <div className="text-xs text-gray-600 mb-2">Expenses</div>
+            <div className="text-2xl font-semibold text-red-600">
+              ₹{formatAmount(stats.thisMonthExpenses)}
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/bookings')}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Active Bookings</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.activeBookings}</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <Clipboard className="text-blue-600" size={24} />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/calendar')}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Events This Month</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.eventsThisMonth}</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <Calendar className="text-green-600" size={24} />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/tracking')}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Pending Tasks</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.pendingTasks}</p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-lg">
-                <Clock className="text-yellow-600" size={24} />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => setShowOverdueModal(true)}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">Overdue Payments</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.overduePayments}</p>
-                {stats.overdueAmount > 0 && (
-                  <p className="text-sm text-red-600 mt-1">₹{stats.overdueAmount.toLocaleString()}</p>
-                )}
-              </div>
-              <div className="bg-red-100 p-3 rounded-lg">
-                <DollarSign className="text-red-600" size={24} />
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {(conflicts.length > 0 || shortages.length > 0 || stats.dataNotReceived > 0) && (
-          <div className="mb-8">
-            <Card className="border-l-4 border-red-500">
-              <div className="flex items-start gap-4">
-                <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Scheduling Alerts</h3>
-                  <div className="space-y-2">
-                    {conflicts.length > 0 && (
-                      <div className="flex items-center justify-between bg-red-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                          <span className="font-medium text-gray-900">{conflicts.length} Double Booking{conflicts.length > 1 ? 's' : ''}</span>
-                          <span className="text-gray-600 text-sm">Same staff assigned to multiple events</span>
-                        </div>
-                        <Button variant="danger" size="sm" onClick={() => navigate('/calendar')}>
-                          View Calendar
-                        </Button>
-                      </div>
-                    )}
-                    {shortages.length > 0 && (
-                      <div className="flex items-center justify-between bg-yellow-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
-                          <span className="font-medium text-gray-900">{shortages.length} Staff Shortage{shortages.length > 1 ? 's' : ''}</span>
-                          <span className="text-gray-600 text-sm">Events need more staff members</span>
-                        </div>
-                        <Button variant="secondary" size="sm" onClick={() => navigate('/calendar')}>
-                          View Calendar
-                        </Button>
-                      </div>
-                    )}
-                    {stats.dataNotReceived > 0 && (
-                      <div className="flex items-center justify-between bg-orange-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-                          <span className="font-medium text-gray-900">{stats.dataNotReceived} Data Not Received</span>
-                          <span className="text-gray-600 text-sm">Past events missing staff data</span>
-                        </div>
-                        <Button variant="secondary" size="sm" onClick={() => setShowDataModal(true)}>
-                          View Details
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
+        {staffShortages > 0 && (
+          <div className="flex items-center gap-3 bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 mb-5">
+            <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+            <span className="flex-1 text-sm text-amber-900 font-medium">
+              {staffShortages} Staff Shortage{staffShortages > 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={() => navigate('/calendar')}
+              className="text-sm text-blue-600 hover:underline font-medium"
+            >
+              View Calendar →
+            </button>
           </div>
         )}
 
-        <PaymentQuickAccess onAddExpense={() => setShowExpenseModal(true)} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Today's Events</h3>
-              <span className="text-sm text-gray-600">{todaysEvents.length} event{todaysEvents.length !== 1 ? 's' : ''}</span>
+        <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 mb-5">
+          <div className="text-xs font-semibold text-gray-600 mb-3 tracking-wide">
+            FINANCE SUMMARY
+          </div>
+          <div className="flex flex-wrap gap-6">
+            <div className="flex gap-2 text-sm">
+              <span className="text-gray-600">Revenue:</span>
+              <span className="font-semibold text-gray-900">
+                ₹{formatAmount(financeStats.revenue)}
+              </span>
             </div>
+            <div className="flex gap-2 text-sm">
+              <span className="text-gray-600">Expenses:</span>
+              <span className="font-semibold text-red-600">
+                ₹{formatAmount(financeStats.expenses)}
+              </span>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <span className="text-gray-600">Profit:</span>
+              <span
+                className={`font-semibold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+              >
+                ₹{formatAmount(financeStats.profit)}
+              </span>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <span className="text-gray-600">Outstanding:</span>
+              <span className="font-semibold text-gray-900">
+                ₹{formatAmount(financeStats.outstanding)}
+              </span>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <span className="text-gray-600">Staff Due:</span>
+              <span className="font-semibold text-red-600">
+                ₹{formatAmount(financeStats.staffDue)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+          <div className="bg-gray-100 border border-gray-200 rounded-lg p-4">
+            <div className="text-xs font-semibold text-gray-600 mb-2 tracking-wide">TODAY</div>
+            <div className="text-lg font-semibold text-gray-900">
+              {scheduleStats.today === 0 ? 'No events' : `${scheduleStats.today} events`}
+            </div>
+          </div>
+
+          <div className="bg-gray-100 border border-gray-200 rounded-lg p-4">
+            <div className="text-xs font-semibold text-gray-600 mb-2 tracking-wide">THIS WEEK</div>
+            <div className="text-lg font-semibold text-gray-900">
+              {scheduleStats.thisWeek === 0 ? '0 events' : `${scheduleStats.thisWeek} events`}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-100 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold text-gray-600 tracking-wide">RECENT ACTIVITY</h3>
+          </div>
+
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm">No recent activity</div>
+          ) : (
             <div className="space-y-3">
-              {todaysEvents.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CheckCircle className="mx-auto mb-2 text-green-500" size={48} />
-                  <p>No events scheduled for today</p>
+              {recentActivity.map((activity, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between py-2 border-b border-gray-300 last:border-b-0"
+                >
+                  <span className="text-sm text-gray-900">{activity.text}</span>
+                  <span className="text-xs text-gray-500">{activity.time}</span>
                 </div>
-              ) : (
-                todaysEvents.map(event => (
-                  <div key={event.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-gray-900">{event.clientName}</p>
-                        <p className="text-sm text-gray-600">{event.event_name} • {event.venue}</p>
-                      </div>
-                      <StatusBadge status={event.time_slot} />
-                    </div>
-                    {event.assignedStaff.length > 0 && (
-                      <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-                        <Users size={14} />
-                        <span>{event.assignedStaff.join(', ')}</span>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+              ))}
             </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">This Week's Schedule</h3>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/calendar')}>
-                View Calendar
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {upcomingWeekEvents.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Calendar className="mx-auto mb-2" size={48} />
-                  <p>No upcoming events this week</p>
-                </div>
-              ) : (
-                upcomingWeekEvents.map(event => (
-                  <div key={event.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{event.clientName}</p>
-                        <p className="text-sm text-gray-600">{event.event_name} • {event.venue}</p>
-                        <p className="text-xs text-gray-500 mt-1">{formatDate(event.event_date)}</p>
-                      </div>
-                      <StatusBadge status={event.time_slot} />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/bookings')}>
-            <div className="text-center py-6">
-              <Clipboard className="mx-auto mb-3 text-gray-600" size={36} />
-              <p className="text-lg font-semibold text-gray-900 mb-1">New Booking</p>
-              <p className="text-sm text-gray-600">Create a new client booking</p>
-            </div>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/calendar')}>
-            <div className="text-center py-6">
-              <Calendar className="mx-auto mb-3 text-gray-600" size={36} />
-              <p className="text-lg font-semibold text-gray-900 mb-1">View Calendar</p>
-              <p className="text-sm text-gray-600">Check event schedule and conflicts</p>
-            </div>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate('/staff')}>
-            <div className="text-center py-6">
-              <Users className="mx-auto mb-3 text-gray-600" size={36} />
-              <p className="text-lg font-semibold text-gray-900 mb-1">Manage Staff</p>
-              <p className="text-sm text-gray-600">View and assign team members</p>
-            </div>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <FinancialOverviewWidget />
-          <QuickStatsWidget />
-          <ExpensesWidget />
-        </div>
-
-        <div className="mb-8">
-          <RecentActivityWidget />
+          )}
         </div>
       </div>
-
-      {showDataModal && <DataNotReceivedModal onClose={() => setShowDataModal(false)} />}
-      {showOverdueModal && <OverduePaymentsModal onClose={() => setShowOverdueModal(false)} />}
-      {showExpenseModal && <AddExpenseModal onClose={() => setShowExpenseModal(false)} />}
     </div>
   );
 }
