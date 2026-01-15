@@ -278,57 +278,68 @@ export function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6 lg:py-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
-        {/* KPI Strip */}
-        <div className="flex flex-wrap items-center gap-3 text-sm mb-6">
-          <button
-            onClick={() => navigate('/bookings')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Bookings <span className="font-semibold text-gray-900">{stats.activeBookings}</span>
-          </button>
-          <span className="text-gray-300">·</span>
-          <button
-            onClick={() => navigate('/calendar')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Events <span className="font-semibold text-gray-900">{stats.eventsThisMonth}</span>
-          </button>
-          <span className="text-gray-300">·</span>
-          <button
-            onClick={() => navigate('/tracking?filter=past')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Tasks <span className="font-semibold text-gray-900">{stats.pendingTasks}</span>
-          </button>
-          {stats.overdueBookings > 0 && (
-            <>
-              <span className="text-gray-300">·</span>
-              <button
-                onClick={() => navigate('/client-payments')}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Overdue <span className="font-semibold text-amber-600">{stats.overdueBookings}</span> <span className="text-amber-500">⚠</span>
-              </button>
-            </>
-          )}
-          <span className="text-gray-300">·</span>
-          <button
-            onClick={() => navigate('/expenses')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Expenses <span className="font-semibold text-red-600">₹{formatAmount(stats.thisMonthExpenses)}</span> <span className="text-red-500">🔴</span>
-          </button>
+        {/* KPI Strip with Profit */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 mb-6">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <button
+              onClick={() => navigate('/bookings')}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="text-sm">Bookings</span>{' '}
+              <span className="text-lg font-semibold text-gray-900">{stats.activeBookings}</span>
+            </button>
+            <span className="text-gray-300">·</span>
+            <button
+              onClick={() => navigate('/calendar')}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="text-sm">Events</span>{' '}
+              <span className="text-lg font-semibold text-gray-900">{stats.eventsThisMonth}</span>
+            </button>
+            <span className="text-gray-300">·</span>
+            <button
+              onClick={() => navigate('/tracking?filter=past')}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="text-sm">Tasks</span>{' '}
+              <span className="text-lg font-semibold text-gray-900">{stats.pendingTasks}</span>
+            </button>
+            {stats.overdueBookings > 0 && (
+              <>
+                <span className="text-gray-300">·</span>
+                <button
+                  onClick={() => navigate('/client-payments')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <span className="text-sm">Overdue</span>{' '}
+                  <span className="text-lg font-semibold text-amber-600">{stats.overdueBookings}</span>{' '}
+                  <span className="text-amber-500">⚠</span>
+                </button>
+              </>
+            )}
+            <span className="text-gray-300">·</span>
+            <button
+              onClick={() => navigate('/expenses')}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="text-sm">Expenses</span>{' '}
+              <span className="text-lg font-semibold text-red-600">₹{formatAmount(stats.thisMonthExpenses)}</span>{' '}
+              <span className="text-red-500">🔴</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">PROFIT</span>
+            <span className={`text-2xl font-bold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ₹{formatAmount(financeStats.profit)}
+            </span>
+            {financeStats.profit >= 0 && <span className="text-green-500">🟢</span>}
+          </div>
         </div>
 
         {/* Finance Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="mb-2">
-            <span className={`text-xl font-semibold ${financeStats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ₹{formatAmount(financeStats.profit)} PROFIT
-            </span>
-            {financeStats.profit >= 0 && <span className="ml-2 text-green-500">🟢</span>}
-          </div>
-          <div className="text-sm text-gray-600 mb-3">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
+          <div className="text-sm text-gray-600 mb-2">
             ₹{formatAmount(financeStats.revenue)} Revenue – ₹{formatAmount(financeStats.expenses)} Expenses
           </div>
           <div className="text-sm text-gray-500">
