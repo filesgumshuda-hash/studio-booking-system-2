@@ -132,13 +132,27 @@ export function ClientPaymentsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [clients, bookings]);
 
-  const getDaysOverdue = (dateString: string): number => {
+  const getLastEventDate = (bookingId: string): Date | null => {
+    const bookingEvents = events.filter(e => e.booking_id === bookingId);
+    if (bookingEvents.length === 0) return null;
+
+    const lastEventDate = new Date(
+      Math.max(...bookingEvents.map(e => new Date(e.event_date).getTime()))
+    );
+    return lastEventDate;
+  };
+
+  const getDaysOverdue = (bookingId: string): number => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const paymentDate = new Date(dateString);
-    paymentDate.setHours(0, 0, 0, 0);
-    const diff = today.getTime() - paymentDate.getTime();
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    const lastEventDate = getLastEventDate(bookingId);
+    if (!lastEventDate) return 0;
+
+    lastEventDate.setHours(0, 0, 0, 0);
+    const diff = today.getTime() - lastEventDate.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
   };
 
   const filteredPayments = useMemo(() => {
@@ -161,9 +175,15 @@ export function ClientPaymentsPage() {
     today.setHours(0, 0, 0, 0);
 
     if (statusFilter === 'overdue') {
-      filtered = filtered.filter(
-        (p) => p.payment_status === 'agreed' && new Date(p.payment_date) < today
-      );
+      filtered = filtered.filter((p) => {
+        if (p.payment_status !== 'agreed') return false;
+
+        const lastEventDate = getLastEventDate(p.booking_id);
+        if (!lastEventDate) return false;
+
+        lastEventDate.setHours(0, 0, 0, 0);
+        return lastEventDate < today;
+      });
     } else if (statusFilter === 'agreed') {
       filtered = filtered.filter((p) => p.payment_status === 'agreed');
     } else if (statusFilter === 'received') {
@@ -184,10 +204,16 @@ export function ClientPaymentsPage() {
   const overduePayments = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return filteredPayments.filter(
-      (p) => p.payment_status === 'agreed' && new Date(p.payment_date) < today
-    );
-  }, [filteredPayments]);
+    return filteredPayments.filter((p) => {
+      if (p.payment_status !== 'agreed') return false;
+
+      const lastEventDate = getLastEventDate(p.booking_id);
+      if (!lastEventDate) return false;
+
+      lastEventDate.setHours(0, 0, 0, 0);
+      return lastEventDate < today;
+    });
+  }, [filteredPayments, events]);
 
   const overdueTotal = useMemo(() => {
     return overduePayments.reduce((sum, p) => sum + p.amount, 0);
@@ -449,7 +475,8 @@ export function ClientPaymentsPage() {
                 {filteredPayments.map((payment) => {
                   const client = clients.find((c) => c.id === payment.client_id);
                   const booking = bookings.find((b) => b.id === payment.booking_id);
-                  const daysOverdue = getDaysOverdue(payment.payment_date);
+                  const lastEventDate = getLastEventDate(payment.booking_id);
+                  const daysOverdue = getDaysOverdue(payment.booking_id);
                   const isOverdue = payment.payment_status === 'agreed' && daysOverdue > 0;
 
                   return (
@@ -472,11 +499,17 @@ export function ClientPaymentsPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                         <div>
-                          <p className="text-xs text-gray-600 mb-1">Date</p>
+                          <p className="text-xs text-gray-600 mb-1">Payment Agreed</p>
                           <p className="text-sm font-medium text-gray-900">{formatDate(payment.payment_date)}</p>
                         </div>
+                        {lastEventDate && (
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Last Event</p>
+                            <p className="text-sm font-medium text-gray-900">{formatDate(lastEventDate.toISOString())}</p>
+                          </div>
+                        )}
                         <div>
                           <p className="text-xs text-gray-600 mb-1">Amount</p>
                           <p className="text-sm font-semibold text-gray-900">{formatCurrency(payment.amount)}</p>
@@ -492,7 +525,7 @@ export function ClientPaymentsPage() {
                       {isOverdue && (
                         <div className="mb-4 flex items-center gap-2 text-red-600">
                           <AlertTriangle size={16} />
-                          <span className="text-sm font-semibold">{daysOverdue} days overdue</span>
+                          <span className="text-sm font-semibold">{daysOverdue} days overdue (since last event)</span>
                         </div>
                       )}
 

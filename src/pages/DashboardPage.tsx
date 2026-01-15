@@ -86,8 +86,20 @@ export function DashboardPage() {
     }, 0);
 
     const overduePayments = clientPaymentRecords.filter((p) => {
-      if (p.payment_status === 'received') return false;
-      return new Date(p.payment_date) < new Date();
+      if (p.payment_status !== 'agreed') return false;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const bookingEvents = events.filter(e => e.booking_id === p.booking_id);
+      if (bookingEvents.length === 0) return false;
+
+      const lastEventDate = new Date(
+        Math.max(...bookingEvents.map(e => new Date(e.event_date).getTime()))
+      );
+      lastEventDate.setHours(0, 0, 0, 0);
+
+      return lastEventDate < today;
     }).length;
 
     const thisMonthExpenses = expenses
