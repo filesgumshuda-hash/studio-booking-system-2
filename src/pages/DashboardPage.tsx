@@ -332,7 +332,7 @@ export function DashboardPage() {
           </button>
 
           <button
-            onClick={() => navigate('/staff')}
+            onClick={() => navigate('/staff-payments')}
             className="flex items-center gap-3 bg-white border-l-4 border-blue-600 rounded-lg p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
           >
             <Users className="text-blue-600 flex-shrink-0" size={20} />
