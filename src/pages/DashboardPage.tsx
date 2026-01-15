@@ -118,7 +118,27 @@ export function DashboardPage() {
     const netProfit = totalRevenue - totalExpenses;
 
     const outstanding = clientPaymentRecords
-      .filter((p) => p.payment_status === 'agreed')
+      .filter((p) => {
+        if (p.payment_status !== 'agreed') return false;
+
+        const booking = bookings.find(b => b.id === p.booking_id);
+        if (!booking) return false;
+
+        const bookingEvents = events.filter(e => e.booking_id === booking.id);
+        if (bookingEvents.length === 0) return false;
+
+        const sortedEvents = bookingEvents.sort((a, b) =>
+          new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+        );
+        const lastEvent = sortedEvents[0];
+        const lastEventDate = new Date(lastEvent.event_date);
+        lastEventDate.setHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return lastEventDate < today;
+      })
       .reduce((sum, p) => sum + p.amount, 0);
 
     const staffDue = staffPayments
@@ -132,7 +152,7 @@ export function DashboardPage() {
       outstanding,
       staffDue,
     };
-  }, [clientPaymentRecords, expenses, staffPayments]);
+  }, [clientPaymentRecords, expenses, staffPayments, bookings, events]);
 
   const scheduleStats = useMemo(() => {
     const todayEvents = events.filter((e) => e.event_date === todayString).length;
@@ -283,7 +303,12 @@ export function DashboardPage() {
               </span>
             </div>
             <div className="flex gap-2 text-sm">
-              <span className="text-gray-600">Outstanding:</span>
+              <span
+                className="text-gray-600 cursor-help border-b border-dotted border-gray-400"
+                title="Outstanding payments for bookings whose last event date has already passed"
+              >
+                Outstanding:
+              </span>
               <span className="font-semibold text-gray-900">
                 ₹{formatAmount(financeStats.outstanding)}
               </span>
