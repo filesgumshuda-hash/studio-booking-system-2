@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
 import { Plus, Calendar, DollarSign, Users, Home, Wallet, Menu, X, LogOut, ClipboardList } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
+import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -60,6 +61,7 @@ export function DashboardPage() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [moneySheetOpen, setMoneySheetOpen] = useState(false);
+  const [dataNotReceivedModalOpen, setDataNotReceivedModalOpen] = useState(false);
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -279,6 +281,21 @@ export function DashboardPage() {
   const { conflicts, shortages } = detectConflicts(events, staffAssignments, staff);
   const staffShortages = shortages.length;
 
+  const pendingDataCount = useMemo(() => {
+    const todayForComparison = new Date();
+    todayForComparison.setHours(0, 0, 0, 0);
+
+    return staffAssignments.filter(assignment => {
+      const event = events.find(e => e.id === assignment.event_id);
+      if (!event) return false;
+
+      const eventDate = new Date(event.event_date);
+      eventDate.setHours(0, 0, 0, 0);
+
+      return eventDate < todayForComparison && !(assignment as any).data_received;
+    }).length;
+  }, [staffAssignments, events]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Top Bar */}
@@ -470,6 +487,20 @@ export function DashboardPage() {
           </button>
         )}
 
+        {/* Data Not Received Alert */}
+        {pendingDataCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setDataNotReceivedModalOpen(true)}
+            className="w-full flex items-center gap-3 bg-orange-50 border-l-4 border-orange-400 rounded px-4 py-3 mb-4 hover:bg-orange-100 transition-colors text-left"
+          >
+            <span className="text-sm text-orange-800 flex-1">
+              ⚠️ Data pending: {pendingDataCount} staff member{pendingDataCount > 1 ? 's' : ''} haven't submitted data from past events
+            </span>
+            <span className="text-sm text-blue-500">Review →</span>
+          </button>
+        )}
+
         {/* Finance Summary */}
         <div className="space-y-4 mb-6">
           <FinanceSummaryWidget
@@ -561,6 +592,11 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Data Not Received Modal */}
+      {dataNotReceivedModalOpen && (
+        <DataNotReceivedModal onClose={() => setDataNotReceivedModalOpen(false)} />
+      )}
     </div>
   );
 }
