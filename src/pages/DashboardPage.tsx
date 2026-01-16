@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { Plus, Calendar, DollarSign, Users, UserCircle, FileText } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Users, UserCircle, FileText, Home, Wallet, Menu, X, LogOut, ClipboardList } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
 
 function formatAmount(amount: number): string {
@@ -44,6 +45,7 @@ function formatCompactDate(dateString: string): string {
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const {
     bookings,
     events,
@@ -55,6 +57,9 @@ export function DashboardPage() {
     expenses,
     staffPayments,
   } = useAppData();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [moneySheetOpen, setMoneySheetOpen] = useState(false);
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -276,52 +281,163 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6 lg:py-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+      {/* Mobile Top Bar */}
+      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b sticky top-0 z-40">
+        <div>
+          <div className="font-semibold text-gray-900">WedRing Studios</div>
+          <div className="text-xs text-gray-500">{user?.name || 'User'}</div>
+        </div>
+        <button type="button" onClick={() => setMenuOpen(true)} className="p-2">
+          <Menu size={24} />
+        </button>
+      </header>
 
-        {/* KPI Strip */}
-        <div className="flex flex-wrap items-center gap-3 text-sm mb-6">
-          <button
-            onClick={() => navigate('/bookings')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <span className="text-sm">Bookings</span>{' '}
-            <span className="text-lg font-semibold text-gray-900">{stats.activeBookings}</span>
-          </button>
-          <span className="text-gray-300">·</span>
-          <button
-            onClick={() => navigate('/calendar')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <span className="text-sm">Events</span>{' '}
-            <span className="text-lg font-semibold text-gray-900">{stats.eventsThisMonth}</span>
-          </button>
-          <span className="text-gray-300">·</span>
-          <button
-            onClick={() => navigate('/tracking?filter=past')}
-            className="text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <span className="text-sm">Tasks</span>{' '}
-            <span className="text-lg font-semibold text-gray-900">{stats.pendingTasks}</span>
-          </button>
-          {stats.overdueBookings > 0 && (
-            <>
-              <span className="text-gray-300">·</span>
-              <button
-                onClick={() => navigate('/client-payments')}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <span className="text-sm">Overdue</span>{' '}
-                <span className="text-lg font-semibold text-amber-600">{stats.overdueBookings}</span>{' '}
-                <span className="text-amber-500">⚠</span>
+      {/* Slide-out Menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
+          <div className="absolute top-0 right-0 bottom-0 w-64 bg-white shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b">
+              <span className="font-semibold">Menu</span>
+              <button type="button" onClick={() => setMenuOpen(false)} className="p-2">
+                <X size={20} />
               </button>
-            </>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/tracking');
+                  setMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ClipboardList size={20} />
+                <span>Event Tracking</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  setMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors text-red-600"
+              >
+                <LogOut size={20} />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Money Bottom Sheet */}
+      {moneySheetOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMoneySheetOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-xl p-4">
+            <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/client-payments');
+                setMoneySheetOpen(false);
+              }}
+              className="w-full text-left py-3 border-b hover:bg-gray-50 transition-colors"
+            >
+              Client Payments
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/staff-payments');
+                setMoneySheetOpen(false);
+              }}
+              className="w-full text-left py-3 border-b hover:bg-gray-50 transition-colors"
+            >
+              Staff Payments
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/expenses');
+                setMoneySheetOpen(false);
+              }}
+              className="w-full text-left py-3 hover:bg-gray-50 transition-colors"
+            >
+              Expenses
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Tab Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 z-50 md:hidden">
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="flex flex-col items-center text-xs text-blue-600"
+        >
+          <Home size={20} />
+          <span>Home</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/calendar')}
+          className="flex flex-col items-center text-xs text-gray-600"
+        >
+          <Calendar size={20} />
+          <span>Cal</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/bookings')}
+          className="flex flex-col items-center text-xs text-gray-600"
+        >
+          <div className="bg-blue-500 text-white rounded-full p-1">
+            <Plus size={20} />
+          </div>
+          <span>New</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/staff')}
+          className="flex flex-col items-center text-xs text-gray-600"
+        >
+          <Users size={20} />
+          <span>Staff</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMoneySheetOpen(true)}
+          className="flex flex-col items-center text-xs text-gray-600"
+        >
+          <Wallet size={20} />
+          <span>Money</span>
+        </button>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 py-6 pb-20 lg:px-6 lg:py-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6 hidden md:block">Dashboard</h1>
+
+        {/* Stats Row */}
+        <div className="text-sm text-gray-700 mb-4">
+          Bookings <strong>{stats.activeBookings}</strong> • Events <strong>{stats.eventsThisMonth}</strong> • Tasks <strong>{stats.pendingTasks}</strong>
+          {stats.overdueBookings > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate('/client-payments')}
+              className="ml-2 text-red-500"
+            >
+              Overdue <strong>{stats.overdueBookings}</strong> ⚠️
+            </button>
           )}
         </div>
 
-        {/* Payment Quick Access */}
-        <div className="flex flex-wrap gap-3 mb-6">
+        {/* Payment Quick Access - Desktop Only */}
+        <div className="hidden md:flex flex-wrap gap-3 mb-6">
           <button
+            type="button"
             onClick={() => navigate('/client-payments')}
             className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg px-6 py-4 transition-colors shadow-sm"
           >
@@ -332,6 +448,7 @@ export function DashboardPage() {
             </div>
           </button>
           <button
+            type="button"
             onClick={() => navigate('/staff-payments')}
             className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg px-6 py-4 transition-colors shadow-sm"
           >
@@ -342,6 +459,7 @@ export function DashboardPage() {
             </div>
           </button>
           <button
+            type="button"
             onClick={() => navigate('/expenses')}
             className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg px-6 py-4 transition-colors shadow-sm"
           >
@@ -356,20 +474,19 @@ export function DashboardPage() {
         {/* Staff Shortage Alert */}
         {staffShortages > 0 && (
           <button
+            type="button"
             onClick={() => navigate('/calendar')}
-            className="w-full flex items-center gap-3 bg-amber-50 border-l-4 border-amber-400 rounded px-4 py-2.5 mb-6 hover:bg-amber-100 transition-colors text-left"
+            className="w-full flex items-center gap-3 bg-yellow-50 border-l-4 border-yellow-400 rounded px-4 py-3 mb-4 hover:bg-yellow-100 transition-colors text-left"
           >
-            <span className="text-amber-500">⚠</span>
-            <span className="flex-1 text-sm text-amber-900">
-              Staff shortage: {staffShortages} shift{staffShortages > 1 ? 's' : ''} uncovered
+            <span className="text-sm text-yellow-800 flex-1">
+              ⚠️ Staff shortage: {staffShortages} shift{staffShortages > 1 ? 's' : ''} uncovered
             </span>
-            <span className="text-sm text-amber-700">View calendar →</span>
+            <span className="text-sm text-blue-500">View calendar →</span>
           </button>
         )}
 
-        {/* Finance Summary and Agenda */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {/* Finance Summary Widget */}
+        {/* Finance Summary */}
+        <div className="space-y-4 mb-6">
           <FinanceSummaryWidget
             bookings={bookings}
             events={events}
@@ -378,28 +495,24 @@ export function DashboardPage() {
           />
 
           {/* Agenda */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-            <h2 className="text-base font-medium text-gray-900 mb-4">Agenda</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Today:</span>
-                <span className="font-medium text-gray-900">
-                  {scheduleStats.today === 0 ? 'No events' : `${scheduleStats.today} event${scheduleStats.today > 1 ? 's' : ''}`}
-                </span>
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h2 className="font-semibold text-gray-900 mb-2">Agenda</h2>
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Today</span>
+                <span>{scheduleStats.today === 0 ? 'No events' : scheduleStats.today}</span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">This week:</span>
-                <span className="font-medium text-gray-900">
-                  {scheduleStats.thisWeek} event{scheduleStats.thisWeek !== 1 ? 's' : ''}
-                </span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">This week</span>
+                <span>{scheduleStats.thisWeek} events</span>
               </div>
               {scheduleStats.nextEvent && (
-                <div className="pt-3 border-t border-gray-200">
-                  <div className="text-xs text-gray-500 mb-1">Next:</div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-gray-500">Next</span>
                   <button
                     type="button"
                     onClick={() => navigate('/calendar')}
-                    className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                    className="text-blue-500"
                   >
                     {formatCompactDate(scheduleStats.nextEvent.event_date)} · {scheduleStats.nextEvent.event_name}
                   </button>
@@ -408,8 +521,8 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          {/* Quick Actions - Desktop Only */}
+          <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 p-5">
             <h2 className="text-base font-medium text-gray-900 mb-4">Quick Actions</h2>
             <div className="space-y-2">
               <button
@@ -441,29 +554,22 @@ export function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-          <h2 className="text-base font-medium text-gray-900 mb-4">Recent Activity</h2>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-semibold text-gray-900">Recent Activity</span>
+            <button type="button" className="text-xs text-blue-500">See all →</button>
+          </div>
 
           {recentActivity.length === 0 ? (
             <div className="text-center py-8 text-sm text-gray-400">No recent activity</div>
           ) : (
-            <div className="space-y-1">
-              {recentActivity.map((activity, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <span className="text-sm flex-shrink-0">
-                      {activity.type === 'booking' ? '🆕' : '✅'}
-                    </span>
-                    <span className="text-sm text-gray-600 flex-shrink-0">
-                      {activity.type === 'booking' ? 'Booking' : 'Event completed'}
-                    </span>
-                    <span className="text-sm text-gray-300 flex-shrink-0">·</span>
-                    <span className="text-sm text-gray-900 truncate">{activity.text}</span>
-                  </div>
-                  <span className="text-sm text-gray-500 ml-4 flex-shrink-0">{activity.time}</span>
+            <div className="text-sm space-y-2">
+              {recentActivity.slice(0, 3).map((activity, index) => (
+                <div key={index} className="flex justify-between">
+                  <span>
+                    {activity.type === 'booking' ? '🆕' : '✅'} {activity.type === 'booking' ? 'Booking' : 'Event completed'} · {activity.text}
+                  </span>
+                  <span className="text-gray-400">{activity.time}</span>
                 </div>
               ))}
             </div>

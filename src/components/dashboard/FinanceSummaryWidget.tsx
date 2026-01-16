@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Booking, Event, ClientPaymentRecord, Expense } from '../../context/AppContext';
 
 interface FinanceSummaryWidgetProps {
@@ -56,6 +57,7 @@ export function FinanceSummaryWidget({
   clientPaymentRecords,
   expenses,
 }: FinanceSummaryWidgetProps) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<TabType>('all');
   const [timeRange, setTimeRange] = useState<TimeRangeType>('all-time');
 
@@ -116,16 +118,16 @@ export function FinanceSummaryWidget({
   }, [bookings, events, clientPaymentRecords, expenses, tab, timeRange]);
 
   return (
-    <div className="bg-white border rounded-lg p-4 max-w-sm">
+    <div className="bg-white border rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-800">Finance Summary</h3>
-        <div className="flex gap-1">
+        <div className="flex gap-1 text-xs">
           <button
             type="button"
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`px-2 py-1 rounded ${
               tab === 'active'
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100'
             }`}
             onClick={() => setTab('active')}
           >
@@ -133,10 +135,10 @@ export function FinanceSummaryWidget({
           </button>
           <button
             type="button"
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`px-2 py-1 rounded ${
               tab === 'past'
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100'
             }`}
             onClick={() => setTab('past')}
           >
@@ -144,10 +146,10 @@ export function FinanceSummaryWidget({
           </button>
           <button
             type="button"
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`px-2 py-1 rounded ${
               tab === 'all'
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100'
             }`}
             onClick={() => setTab('all')}
           >
@@ -156,42 +158,64 @@ export function FinanceSummaryWidget({
         </div>
       </div>
 
-      <div className="mb-4">
-        <select
-          value={timeRange}
-          onChange={e => setTimeRange(e.target.value as TimeRangeType)}
-          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="this-month">This Month</option>
-          <option value="this-quarter">This Quarter</option>
-          <option value="this-year">This Year</option>
-          <option value="all-time">All Time</option>
-        </select>
-      </div>
+      <select
+        value={timeRange}
+        onChange={e => setTimeRange(e.target.value as TimeRangeType)}
+        className="w-full mb-3 text-sm border rounded p-2"
+      >
+        <option value="this-month">This Month</option>
+        <option value="this-quarter">This Quarter</option>
+        <option value="this-year">This Year</option>
+        <option value="all-time">All Time</option>
+      </select>
 
-      <div className="space-y-2 text-sm">
+      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
         <div className="flex justify-between">
-          <span className="text-gray-600">Agreed</span>
-          <span className="font-medium">₹{financeSummary.agreed.toLocaleString('en-IN')}</span>
+          <span className="text-gray-500">Agreed</span>
+          <span>₹{financeSummary.agreed.toLocaleString('en-IN')}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Received</span>
-          <span className="font-medium text-green-600">₹{financeSummary.received.toLocaleString('en-IN')}</span>
+          <span className="text-gray-500">Outstanding</span>
+          <span className="text-orange-500">₹{financeSummary.outstanding.toLocaleString('en-IN')}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Expenses</span>
-          <span className="font-medium text-red-600">₹{financeSummary.expenses.toLocaleString('en-IN')}</span>
+          <span className="text-gray-500">Received</span>
+          <span className="text-green-600">₹{financeSummary.received.toLocaleString('en-IN')}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Outstanding</span>
-          <span className="font-medium text-orange-500">₹{financeSummary.outstanding.toLocaleString('en-IN')}</span>
-        </div>
-        <div className="border-t pt-2 flex justify-between">
-          <span className="text-gray-800 font-medium">Profit</span>
-          <span className={`font-semibold ${financeSummary.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <span className="text-gray-500">Profit</span>
+          <span className={financeSummary.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
             ₹{financeSummary.profit.toLocaleString('en-IN')}
           </span>
         </div>
+        <div className="flex justify-between col-span-2">
+          <span className="text-gray-500">Expenses</span>
+          <span className="text-red-500">₹{financeSummary.expenses.toLocaleString('en-IN')}</span>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-3 border-t">
+        <button
+          type="button"
+          onClick={() => navigate('/client-payments')}
+          className="flex-1 text-xs py-2 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+        >
+          Client →
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/staff-payments')}
+          className="flex-1 text-xs py-2 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+        >
+          Staff →
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/expenses')}
+          className="flex-1 text-xs py-2 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+        >
+          Expenses →
+        </button>
       </div>
     </div>
   );
