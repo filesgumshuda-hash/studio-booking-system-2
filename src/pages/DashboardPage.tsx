@@ -4,9 +4,12 @@ import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
 import { Plus, Calendar, DollarSign, Wallet, UserCheck } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
+import { AddClientPaymentForm, ClientPaymentFormData } from '../components/payments/AddClientPaymentForm';
+import { AddPaymentForm, PaymentFormData } from '../components/payments/AddPaymentForm';
 import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
-import { AddStaffPaymentModal } from '../components/payments/AddStaffPaymentModal';
+import { Modal } from '../components/common/Modal';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../components/common/Toast';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -63,6 +66,7 @@ export function DashboardPage() {
   const [showClientPaymentModal, setShowClientPaymentModal] = useState(false);
   const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const { showToast, ToastComponent } = useToast();
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -282,19 +286,94 @@ export function DashboardPage() {
   const { conflicts, shortages } = detectConflicts(events, staffAssignments, staff);
   const staffShortages = shortages.length;
 
-  const handleAddStaffPayment = async (staffPayment: any) => {
-    const { data, error } = await supabase
-      .from('staff_payment_records')
-      .insert(staffPayment)
-      .select()
-      .single();
+  const handleAddClientPayment = async (formData: ClientPaymentFormData) => {
+    try {
+      const { data, error } = await supabase
+        .from('client_payment_records')
+        .insert({
+          booking_id: formData.bookingId,
+          amount: formData.amount,
+          payment_date: formData.paymentDate,
+          payment_method: formData.type === 'received' ? formData.paymentMethod : null,
+          payment_status: formData.type,
+          remarks: formData.remarks || null,
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    dispatch({
-      type: 'ADD_STAFF_PAYMENT_RECORD',
-      payload: data,
-    });
+      dispatch({
+        type: 'ADD_CLIENT_PAYMENT_RECORD',
+        payload: data,
+      });
+
+      showToast('Client payment added successfully', 'success');
+      setShowClientPaymentModal(false);
+    } catch (error) {
+      console.error('Error adding client payment:', error);
+      showToast('Failed to add client payment', 'error');
+    }
+  };
+
+  const handleAddStaffPayment = async (formData: PaymentFormData) => {
+    try {
+      const { data, error } = await supabase
+        .from('staff_payment_records')
+        .insert({
+          staff_id: formData.staffId,
+          type: formData.type,
+          amount: formData.amount,
+          payment_date: formData.paymentDate,
+          payment_method: formData.type === 'made' ? formData.paymentMethod : null,
+          remarks: formData.remarks || null,
+          event_id: formData.eventId || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({
+        type: 'ADD_STAFF_PAYMENT_RECORD',
+        payload: data,
+      });
+
+      showToast('Staff payment added successfully', 'success');
+      setShowStaffPaymentModal(false);
+    } catch (error) {
+      console.error('Error adding staff payment:', error);
+      showToast('Failed to add staff payment', 'error');
+    }
+  };
+
+  const handleAddExpense = async (formData: { amount: number; category: string; description: string; date: string; bookingId: string | null }) => {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          amount: formData.amount,
+          category: formData.category,
+          description: formData.description,
+          date: formData.date,
+          booking_id: formData.bookingId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({
+        type: 'ADD_EXPENSE',
+        payload: data,
+      });
+
+      showToast('Expense added successfully', 'success');
+      setShowExpenseModal(false);
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      showToast('Failed to add expense', 'error');
+    }
   };
 
   return (
@@ -482,44 +561,39 @@ export function DashboardPage() {
 
       {/* Modals */}
       {showClientPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Quick Link</h2>
-            <p className="text-gray-600 mb-4">To add client payments, please go to the Client Payments page.</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowClientPaymentModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowClientPaymentModal(false);
-                  navigate('/client-payments');
-                }}
-                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-              >
-                Go to Client Payments
-              </button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={() => setShowClientPaymentModal(false)} title="Add Client Payment">
+          <AddClientPaymentForm
+            bookings={bookings}
+            clients={clients}
+            onSubmit={handleAddClientPayment}
+            onCancel={() => setShowClientPaymentModal(false)}
+          />
+        </Modal>
       )}
 
       {showStaffPaymentModal && (
-        <AddStaffPaymentModal
-          clientBookings={bookings}
-          onClose={() => setShowStaffPaymentModal(false)}
-          onSave={handleAddStaffPayment}
-        />
+        <Modal onClose={() => setShowStaffPaymentModal(false)} title="Add Staff Payment">
+          <AddPaymentForm
+            staff={staff}
+            events={events}
+            bookings={bookings}
+            clients={clients}
+            onSubmit={handleAddStaffPayment}
+            onCancel={() => setShowStaffPaymentModal(false)}
+          />
+        </Modal>
       )}
 
       {showExpenseModal && (
         <AddExpenseModal
+          bookings={bookings}
+          clients={clients}
+          onAdd={handleAddExpense}
           onClose={() => setShowExpenseModal(false)}
         />
       )}
+
+      <ToastComponent />
     </div>
   );
 }
