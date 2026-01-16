@@ -257,6 +257,7 @@ export function BookingTrackingDetailPage() {
               const eventAssignments = getEventAssignments(event.id);
               const photographers = eventAssignments.filter(a => a.staffMember?.role === 'photographer');
               const videographers = eventAssignments.filter(a => a.staffMember?.role === 'videographer');
+              const droneOperators = eventAssignments.filter(a => a.staffMember?.role === 'drone_operator');
               const isExpanded = expandedEvents.has(event.id);
 
               return (
@@ -282,7 +283,7 @@ export function BookingTrackingDetailPage() {
                   </button>
 
                   {/* Expanded Content - Data Collection */}
-                  {isExpanded && (photographers.length > 0 || videographers.length > 0) && (
+                  {isExpanded && (photographers.length > 0 || videographers.length > 0 || droneOperators.length > 0) && (
                     <div className="px-4 pb-4 border-t border-gray-200 bg-gray-50">
                       <div className="pt-4">
                         <h4 className="font-semibold text-gray-900 mb-4">Data Collection</h4>
@@ -335,7 +336,7 @@ export function BookingTrackingDetailPage() {
 
                         {/* Videographers */}
                         {videographers.length > 0 && (
-                          <div>
+                          <div className="mb-4">
                             <div className="flex items-center gap-2 mb-3">
                               <span>🎥</span>
                               <span className="text-sm font-medium text-gray-700">
@@ -344,6 +345,52 @@ export function BookingTrackingDetailPage() {
                             </div>
                             <div className="space-y-2">
                               {videographers.map((assignment) => (
+                                <div
+                                  key={assignment.id}
+                                  className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    {(assignment as any).data_received ? (
+                                      <CheckCircle size={20} className="text-green-600" />
+                                    ) : (
+                                      <XCircle size={20} className="text-gray-400" />
+                                    )}
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {assignment.staffMember?.name}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleDataReceived(assignment.id, (assignment as any).data_received || false)}
+                                    disabled={updatingAssignments.has(assignment.id)}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                      (assignment as any).data_received
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {updatingAssignments.has(assignment.id)
+                                      ? 'Updating...'
+                                      : (assignment as any).data_received
+                                      ? 'Received'
+                                      : 'Mark Received'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Drone Operators */}
+                        {droneOperators.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span>🚁</span>
+                              <span className="text-sm font-medium text-gray-700">
+                                Drone Operators ({droneOperators.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {droneOperators.map((assignment) => (
                                 <div
                                   key={assignment.id}
                                   className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-200"
