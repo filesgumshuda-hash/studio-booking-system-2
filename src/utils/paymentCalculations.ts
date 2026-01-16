@@ -14,6 +14,7 @@ export interface EventAmount {
   clientName: string;
   eventDate: string;
   amount: number;
+  bookingId: string;
 }
 
 export function getTotalAgreed(staffId: string, payments: StaffPaymentRecord[]): number {
@@ -105,6 +106,7 @@ export function getStaffEvents(
         clientName: event.booking?.client?.name || 'Unknown Client',
         eventDate: event.event_date,
         amount,
+        bookingId: event.booking_id,
       };
     })
     .filter((ea): ea is EventAmount => ea !== null);
