@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
 import { Plus, Calendar, DollarSign } from 'lucide-react';
+import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -337,51 +338,6 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Finance Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
-          <div className="text-sm text-gray-600 mb-2">
-            ₹{formatAmount(financeStats.revenue)} Revenue – ₹{formatAmount(financeStats.expenses)} Expenses
-          </div>
-          <div className="text-sm text-gray-500">
-            Outstanding ₹{formatAmount(financeStats.outstanding)} · Staff Due ₹{formatAmount(financeStats.staffDue)}
-          </div>
-        </div>
-
-        {/* Financial Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <button
-            onClick={() => navigate('/client-payments')}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 text-left hover:shadow-md transition-shadow"
-          >
-            <div className="text-base font-medium text-gray-900 mb-2">Client Payments</div>
-            <div className="text-lg font-semibold text-gray-900 mb-1">
-              ₹{formatAmount(financeStats.outstanding)}
-            </div>
-            <div className="text-sm text-gray-500">Outstanding</div>
-          </button>
-
-          <button
-            onClick={() => navigate('/staff-payments')}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 text-left hover:shadow-md transition-shadow"
-          >
-            <div className="text-base font-medium text-gray-900 mb-2">Staff Payments</div>
-            <div className="text-lg font-semibold text-gray-900 mb-1">
-              ₹{formatAmount(financeStats.staffDue)}
-            </div>
-            <div className="text-sm text-gray-500">Due</div>
-          </button>
-
-          <button
-            onClick={() => navigate('/expenses')}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 text-left hover:shadow-md transition-shadow"
-          >
-            <div className="text-base font-medium text-gray-900 mb-2">Expenses</div>
-            <div className="text-lg font-semibold text-gray-900 mb-1">
-              ₹{formatAmount(stats.thisMonthExpenses)}
-            </div>
-            <div className="text-sm text-gray-500">This Month</div>
-          </button>
-        </div>
 
         {/* Staff Shortage Alert */}
         {staffShortages > 0 && (
@@ -397,8 +353,16 @@ export function DashboardPage() {
           </button>
         )}
 
-        {/* Agenda and Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Finance Summary and Agenda */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {/* Finance Summary Widget */}
+          <FinanceSummaryWidget
+            bookings={bookings}
+            events={events}
+            clientPaymentRecords={clientPaymentRecords}
+            expenses={expenses}
+          />
+
           {/* Agenda */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
             <h2 className="text-base font-medium text-gray-900 mb-4">Agenda</h2>
@@ -419,6 +383,7 @@ export function DashboardPage() {
                 <div className="pt-3 border-t border-gray-200">
                   <div className="text-xs text-gray-500 mb-1">Next:</div>
                   <button
+                    type="button"
                     onClick={() => navigate('/calendar')}
                     className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
                   >
@@ -434,6 +399,7 @@ export function DashboardPage() {
             <h2 className="text-base font-medium text-gray-900 mb-4">Quick Actions</h2>
             <div className="space-y-2">
               <button
+                type="button"
                 onClick={() => navigate('/bookings')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
@@ -441,6 +407,7 @@ export function DashboardPage() {
                 <span className="text-sm font-medium text-gray-900">New Booking</span>
               </button>
               <button
+                type="button"
                 onClick={() => navigate('/expenses')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
@@ -448,6 +415,7 @@ export function DashboardPage() {
                 <span className="text-sm font-medium text-gray-900">Add Expense</span>
               </button>
               <button
+                type="button"
                 onClick={() => navigate('/calendar')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
