@@ -7,11 +7,11 @@ import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidg
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
-    return `${(amount / 100000).toFixed(1)}L`;
+    return `${Math.round(amount / 100000)}L`;
   } else if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(1)}K`;
+    return `${Math.round(amount / 1000)}K`;
   }
-  return amount.toLocaleString('en-IN');
+  return Math.round(amount).toLocaleString('en-IN');
 }
 
 function getRelativeTime(dateString: string): string {

@@ -107,11 +107,11 @@ export function FinanceSummaryWidget({
     const profit = received - totalExpenses;
 
     return {
-      agreed,
-      received,
-      expenses: totalExpenses,
-      outstanding,
-      profit,
+      agreed: Math.round(agreed),
+      received: Math.round(received),
+      expenses: Math.round(totalExpenses),
+      outstanding: Math.round(outstanding),
+      profit: Math.round(profit),
     };
   }, [bookings, events, clientPaymentRecords, expenses, tab, timeRange]);
 
