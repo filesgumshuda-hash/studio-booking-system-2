@@ -138,7 +138,11 @@ export function CalendarPage() {
 
   const handleViewBooking = () => {
     handleCloseModal();
-    navigate('/bookings');
+    if (selectedEventData?.booking?.id) {
+      navigate(`/tracking/${selectedEventData.booking.id}`);
+    } else {
+      navigate('/bookings');
+    }
   };
 
   const selectedEventData = selectedEvent
