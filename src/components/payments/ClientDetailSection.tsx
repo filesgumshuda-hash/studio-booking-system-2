@@ -100,9 +100,6 @@ export function ClientDetailSection({
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
                     Received
                   </th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
-                    Due
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -120,15 +117,6 @@ export function ClientDetailSection({
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-right text-green-600">
                       {formatCurrency(ba.received)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      {ba.lastEventPassed ? (
-                        <span className={`font-semibold ${getOutstandingColorClass(ba.due)}`}>
-                          {formatCurrency(ba.due)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 italic">Pending</span>
-                      )}
                     </td>
                   </tr>
                 ))}
