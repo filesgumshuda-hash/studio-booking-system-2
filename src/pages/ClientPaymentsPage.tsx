@@ -52,7 +52,7 @@ export function ClientPaymentsPage() {
     if (!selectedClientId) return null;
     const client = clients.find((c) => c.id === selectedClientId);
     if (!client) return null;
-    return calculateClientSummary(selectedClientId, client.name, bookings, clientPaymentRecords, events);
+    return calculateClientSummary(selectedClientId, client.name, bookings, clientPaymentRecords, events, false);
   }, [selectedClientId, clients, bookings, clientPaymentRecords, events]);
 
   const selectedClientBookingAmounts = useMemo(() => {

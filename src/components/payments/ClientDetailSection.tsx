@@ -64,7 +64,7 @@ export function ClientDetailSection({
           <div>
             <span
               className="text-gray-600 cursor-help border-b border-dotted border-gray-400"
-              title="Outstanding payments for bookings whose last event date has already passed"
+              title="Total agreed amount minus total received amount"
             >
               Outstanding:
             </span>
