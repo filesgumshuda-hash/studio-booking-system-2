@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { Plus, Calendar, DollarSign, Users, UserCircle, FileText, Home, Wallet, Menu, X, LogOut, ClipboardList } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Users, Home, Wallet, Menu, X, LogOut, ClipboardList } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
 
 function formatAmount(amount: number): string {
@@ -432,43 +432,6 @@ export function DashboardPage() {
               Overdue <strong>{stats.overdueBookings}</strong> ⚠️
             </button>
           )}
-        </div>
-
-        {/* Payment Quick Access - Desktop Only */}
-        <div className="hidden md:flex flex-wrap gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/client-payments')}
-            className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg px-6 py-4 transition-colors shadow-sm"
-          >
-            <Users size={20} className="text-gray-600" />
-            <div className="text-left">
-              <div className="text-sm font-medium text-gray-900">Client</div>
-              <div className="text-sm text-gray-600">Payments</div>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/staff-payments')}
-            className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg px-6 py-4 transition-colors shadow-sm"
-          >
-            <UserCircle size={20} className="text-gray-600" />
-            <div className="text-left">
-              <div className="text-sm font-medium text-gray-900">Staff</div>
-              <div className="text-sm text-gray-600">Payments</div>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/expenses')}
-            className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg px-6 py-4 transition-colors shadow-sm"
-          >
-            <FileText size={20} className="text-gray-600" />
-            <div className="text-left">
-              <div className="text-sm font-medium text-gray-900">Expenses</div>
-              <div className="text-sm text-gray-600" style={{ visibility: 'hidden' }}>.</div>
-            </div>
-          </button>
         </div>
 
         {/* Staff Shortage Alert */}
