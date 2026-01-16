@@ -422,12 +422,34 @@ export function DashboardPage() {
 
         {/* Stats Row */}
         <div className="text-sm text-gray-700 mb-4">
-          Bookings <strong>{stats.activeBookings}</strong> • Events <strong>{stats.eventsThisMonth}</strong> • Tasks <strong>{stats.pendingTasks}</strong>
+          <button
+            type="button"
+            onClick={() => navigate('/tracking?filter=active')}
+            className="hover:text-blue-600 transition-colors"
+          >
+            Bookings <strong>{stats.activeBookings}</strong>
+          </button>
+          {' • '}
+          <button
+            type="button"
+            onClick={() => navigate('/calendar')}
+            className="hover:text-blue-600 transition-colors"
+          >
+            Events <strong>{stats.eventsThisMonth}</strong>
+          </button>
+          {' • '}
+          <button
+            type="button"
+            onClick={() => navigate('/tracking?filter=past')}
+            className="hover:text-blue-600 transition-colors"
+          >
+            Tasks <strong>{stats.pendingTasks}</strong>
+          </button>
           {stats.overdueBookings > 0 && (
             <button
               type="button"
               onClick={() => navigate('/client-payments')}
-              className="ml-2 text-red-500"
+              className="ml-2 text-red-500 hover:text-red-700 transition-colors"
             >
               Overdue <strong>{stats.overdueBookings}</strong> ⚠️
             </button>
