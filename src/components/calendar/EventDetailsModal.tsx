@@ -12,7 +12,9 @@ interface EventDetailsModalProps {
   booking: Booking | null;
   staffAssignments: StaffAssignment[];
   staff: Staff[];
+  events: Event[];
   onViewBooking?: () => void;
+  onAssignStaff?: (eventId: string, staffId: string) => void;
 }
 
 export function EventDetailsModal({
@@ -23,7 +25,9 @@ export function EventDetailsModal({
   booking,
   staffAssignments,
   staff,
+  events,
   onViewBooking,
+  onAssignStaff,
 }: EventDetailsModalProps) {
   if (!isOpen || !event) return null;
 
@@ -47,6 +51,32 @@ export function EventDetailsModal({
     videographerCount >= event.videographers_required &&
     droneCount >= event.drone_operators_required &&
     editorCount >= event.editors_required;
+
+  const photographerShortage = Math.max(0, event.photographers_required - photographerCount);
+  const videographerShortage = Math.max(0, event.videographers_required - videographerCount);
+  const droneShortage = Math.max(0, event.drone_operators_required - droneCount);
+  const editorShortage = Math.max(0, event.editors_required - editorCount);
+
+  const eventDate = event.event_date;
+  const busyStaffIds = staffAssignments
+    .filter((sa) => {
+      const assignedEvent = events.find((e) => e.id === sa.event_id);
+      return assignedEvent?.event_date === eventDate;
+    })
+    .map((sa) => sa.staff_id);
+
+  const availablePhotographers = staff.filter(
+    (s) => s.role === 'photographer' && s.status === 'active' && !busyStaffIds.includes(s.id)
+  );
+  const availableVideographers = staff.filter(
+    (s) => s.role === 'videographer' && s.status === 'active' && !busyStaffIds.includes(s.id)
+  );
+  const availableDroneOps = staff.filter(
+    (s) => s.role === 'drone_operator' && s.status === 'active' && !busyStaffIds.includes(s.id)
+  );
+  const availableEditors = staff.filter(
+    (s) => s.role === 'editor' && s.status === 'active' && !busyStaffIds.includes(s.id)
+  );
 
   const timeSlotBadge = getTimeSlotBadge(event.time_slot);
 
@@ -111,22 +141,141 @@ export function EventDetailsModal({
               </div>
             </div>
 
-            <div className={`px-4 py-3 rounded-lg mb-4 ${
-              isFullyStaffed
-                ? 'bg-green-50 border border-green-200'
-                : 'bg-yellow-50 border border-yellow-200'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${
-                  isFullyStaffed ? 'bg-green-500' : 'bg-yellow-500'
-                }`}></span>
-                <span className={`font-medium ${
-                  isFullyStaffed ? 'text-green-800' : 'text-yellow-800'
-                }`}>
-                  {isFullyStaffed ? 'Fully staffed' : 'Staff shortage'}
-                </span>
+            {isFullyStaffed && (
+              <div className="px-4 py-3 rounded-lg mb-4 bg-green-50 border border-green-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  <span className="font-medium text-green-800">Fully staffed</span>
+                </div>
               </div>
-            </div>
+            )}
+
+            {!isFullyStaffed && (
+              <div className="mt-4 pt-4 border-t border-gray-200 mb-4">
+                <p className="text-sm font-medium text-amber-700 mb-3">⚠️ Still needed:</p>
+                <div className="space-y-2">
+                  {photographerShortage > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        +{photographerShortage} Photographer{photographerShortage > 1 ? 's' : ''}
+                      </span>
+                      <select
+                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            onAssignStaff?.(event.id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="" disabled>
+                          Assign ▼
+                        </option>
+                        {availablePhotographers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                        {availablePhotographers.length === 0 && (
+                          <option disabled>No one available</option>
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  {videographerShortage > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        +{videographerShortage} Videographer{videographerShortage > 1 ? 's' : ''}
+                      </span>
+                      <select
+                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            onAssignStaff?.(event.id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="" disabled>
+                          Assign ▼
+                        </option>
+                        {availableVideographers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                        {availableVideographers.length === 0 && (
+                          <option disabled>No one available</option>
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  {droneShortage > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        +{droneShortage} Drone Operator{droneShortage > 1 ? 's' : ''}
+                      </span>
+                      <select
+                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            onAssignStaff?.(event.id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="" disabled>
+                          Assign ▼
+                        </option>
+                        {availableDroneOps.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                        {availableDroneOps.length === 0 && (
+                          <option disabled>No one available</option>
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  {editorShortage > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        +{editorShortage} Editor{editorShortage > 1 ? 's' : ''}
+                      </span>
+                      <select
+                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            onAssignStaff?.(event.id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="" disabled>
+                          Assign ▼
+                        </option>
+                        {availableEditors.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                        {availableEditors.length === 0 && (
+                          <option disabled>No one available</option>
+                        )}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {onViewBooking && (
               <button

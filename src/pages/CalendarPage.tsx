@@ -9,11 +9,12 @@ import { useAuth } from '../context/AuthContext';
 import { detectConflicts, getTimeSlotBadge, formatDate, formatDateForStorage } from '../utils/helpers';
 import { getAccessibleEvents } from '../utils/accessControl';
 import { Event } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 
 export function CalendarPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { events, clients, bookings, staff, staffAssignments } = useAppData();
+  const { events, clients, bookings, staff, staffAssignments, refreshData } = useAppData();
 
   const accessibleEvents = useMemo(() => {
     return getAccessibleEvents(user, events);
@@ -134,6 +135,19 @@ export function CalendarPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedEvent(null);
+  };
+
+  const handleAssignStaff = async (eventId: string, staffId: string) => {
+    if (!staffId) return;
+    try {
+      await supabase.from('staff_assignments').insert({
+        event_id: eventId,
+        staff_id: staffId,
+      });
+      await refreshData();
+    } catch (error) {
+      console.error('Failed to assign staff:', error);
+    }
   };
 
   const handleViewBooking = () => {
@@ -325,7 +339,9 @@ export function CalendarPage() {
         booking={selectedEventData?.booking || null}
         staffAssignments={staffAssignments}
         staff={staff}
+        events={events}
         onViewBooking={handleViewBooking}
+        onAssignStaff={handleAssignStaff}
       />
     </div>
   );
