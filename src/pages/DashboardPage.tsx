@@ -1,9 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { Plus, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Wallet, UserCheck } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
+import { AddClientPaymentForm, ClientPaymentFormData } from '../components/payments/AddClientPaymentForm';
+import { AddPaymentForm, PaymentFormData } from '../components/payments/AddPaymentForm';
+import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
+import { Modal } from '../components/common/Modal';
+import { supabase } from '../lib/supabase';
+import { useToast } from '../components/common/Toast';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -54,7 +60,13 @@ export function DashboardPage() {
     clientPaymentRecords,
     expenses,
     staffPayments,
+    dispatch,
   } = useAppData();
+
+  const [showClientPaymentModal, setShowClientPaymentModal] = useState(false);
+  const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const { showToast, ToastComponent } = useToast();
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -274,6 +286,96 @@ export function DashboardPage() {
   const { conflicts, shortages } = detectConflicts(events, staffAssignments, staff);
   const staffShortages = shortages.length;
 
+  const handleAddClientPayment = async (formData: ClientPaymentFormData) => {
+    try {
+      const { data, error } = await supabase
+        .from('client_payment_records')
+        .insert({
+          booking_id: formData.bookingId,
+          amount: formData.amount,
+          payment_date: formData.paymentDate,
+          payment_method: formData.type === 'received' ? formData.paymentMethod : null,
+          payment_status: formData.type,
+          remarks: formData.remarks || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({
+        type: 'ADD_CLIENT_PAYMENT_RECORD',
+        payload: data,
+      });
+
+      showToast('Client payment added successfully', 'success');
+      setShowClientPaymentModal(false);
+    } catch (error) {
+      console.error('Error adding client payment:', error);
+      showToast('Failed to add client payment', 'error');
+    }
+  };
+
+  const handleAddStaffPayment = async (formData: PaymentFormData) => {
+    try {
+      const { data, error } = await supabase
+        .from('staff_payment_records')
+        .insert({
+          staff_id: formData.staffId,
+          type: formData.type,
+          amount: formData.amount,
+          payment_date: formData.paymentDate,
+          payment_method: formData.type === 'made' ? formData.paymentMethod : null,
+          remarks: formData.remarks || null,
+          event_id: formData.eventId || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({
+        type: 'ADD_STAFF_PAYMENT_RECORD',
+        payload: data,
+      });
+
+      showToast('Staff payment added successfully', 'success');
+      setShowStaffPaymentModal(false);
+    } catch (error) {
+      console.error('Error adding staff payment:', error);
+      showToast('Failed to add staff payment', 'error');
+    }
+  };
+
+  const handleAddExpense = async (formData: { amount: number; category: string; description: string; date: string; bookingId: string | null }) => {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          amount: formData.amount,
+          category: formData.category,
+          description: formData.description,
+          date: formData.date,
+          booking_id: formData.bookingId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({
+        type: 'ADD_EXPENSE',
+        payload: data,
+      });
+
+      showToast('Expense added successfully', 'success');
+      setShowExpenseModal(false);
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      showToast('Failed to add expense', 'error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6 lg:py-8">
@@ -400,27 +502,27 @@ export function DashboardPage() {
             <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => navigate('/bookings')}
+                onClick={() => setShowClientPaymentModal(true)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
-                <Plus size={18} className="text-gray-600" />
-                <span className="text-sm font-medium text-gray-900">New Booking</span>
+                <Wallet size={18} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Add Client Payment</span>
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/expenses')}
+                onClick={() => setShowStaffPaymentModal(true)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <UserCheck size={18} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Add Staff Payment</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExpenseModal(true)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
                 <DollarSign size={18} className="text-gray-600" />
                 <span className="text-sm font-medium text-gray-900">Add Expense</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/calendar')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
-              >
-                <Calendar size={18} className="text-gray-600" />
-                <span className="text-sm font-medium text-gray-900">Assign Staff</span>
               </button>
             </div>
           </div>
@@ -456,6 +558,42 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      {showClientPaymentModal && (
+        <Modal onClose={() => setShowClientPaymentModal(false)} title="Add Client Payment">
+          <AddClientPaymentForm
+            bookings={bookings}
+            clients={clients}
+            onSubmit={handleAddClientPayment}
+            onCancel={() => setShowClientPaymentModal(false)}
+          />
+        </Modal>
+      )}
+
+      {showStaffPaymentModal && (
+        <Modal onClose={() => setShowStaffPaymentModal(false)} title="Add Staff Payment">
+          <AddPaymentForm
+            staff={staff}
+            events={events}
+            bookings={bookings}
+            clients={clients}
+            onSubmit={handleAddStaffPayment}
+            onCancel={() => setShowStaffPaymentModal(false)}
+          />
+        </Modal>
+      )}
+
+      {showExpenseModal && (
+        <AddExpenseModal
+          bookings={bookings}
+          clients={clients}
+          onAdd={handleAddExpense}
+          onClose={() => setShowExpenseModal(false)}
+        />
+      )}
+
+      <ToastComponent />
     </div>
   );
 }
