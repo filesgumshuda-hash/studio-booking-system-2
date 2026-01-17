@@ -246,16 +246,13 @@ export function StaffDetailSection({
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '35%' }}>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '45%' }}>
                       Event Name
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '22%' }}>
-                      Client
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '18%' }}>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600" style={{ width: '25%' }}>
                       Date
                     </th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600" style={{ width: '25%' }}>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600" style={{ width: '30%' }}>
                       Amount
                     </th>
                   </tr>
@@ -267,8 +264,9 @@ export function StaffDetailSection({
 
                     return (
                       <tr key={ea.eventId} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{ea.eventName}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{ea.clientName}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {ea.eventName} <span className="text-gray-500">({ea.clientName})</span>
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{formatDate(ea.eventDate)}</td>
                         <td className="px-4 py-3 text-sm">
                           <div className="flex items-center justify-end gap-2">
