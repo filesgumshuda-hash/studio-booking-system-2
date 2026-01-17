@@ -27,6 +27,7 @@ export function ClientPaymentsPage() {
   const { clients, bookings, events, clientPaymentRecords, expenses, staffPaymentRecords, staff, dispatch } = useAppData();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [outstandingFilter, setOutstandingFilter] = useState<OutstandingFilter>('past');
+  const [showOutstanding, setShowOutstanding] = useState(true);
 
   // Auto-select client if navigated from booking detail
   useEffect(() => {
@@ -265,40 +266,6 @@ export function ClientPaymentsPage() {
         </div>
 
         <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Top 10 Clients by Outstanding Balance</h2>
-            <select
-              value={outstandingFilter}
-              onChange={(e) => setOutstandingFilter(e.target.value as OutstandingFilter)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white text-sm min-w-[250px] cursor-pointer"
-            >
-              <option value="past">Past Events (Outstanding Due)</option>
-              <option value="future">Future Events (Payment Pending)</option>
-              <option value="all">All Clients</option>
-            </select>
-          </div>
-          {top10Clients.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <p className="text-gray-500">
-                {outstandingFilter === 'past' && 'No clients with past events and outstanding balance.'}
-                {outstandingFilter === 'future' && 'No clients with future events and outstanding balance.'}
-                {outstandingFilter === 'all' && 'No client payment records yet. Add a payment to get started.'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {top10Clients.map((summary) => (
-                <ClientSummaryCard
-                  key={summary.clientId}
-                  summary={summary}
-                  onClick={() => handleClientSelect(summary.clientId)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="mb-8">
           <label htmlFor="clientSelect" className="block text-sm font-medium text-gray-700 mb-2">
             Search or Select Client:
           </label>
@@ -315,6 +282,51 @@ export function ClientPaymentsPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="mb-8">
+            <button
+              onClick={() => setShowOutstanding(!showOutstanding)}
+              className="w-full flex items-center justify-between mb-4 hover:bg-gray-50 p-2 rounded transition-colors"
+            >
+              <h2 className="text-lg font-semibold text-gray-900">Top 10 Clients by Outstanding Balance</h2>
+              <span className="text-gray-500 text-xl">{showOutstanding ? '−' : '+'}</span>
+            </button>
+
+            {showOutstanding && (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-4">
+                  <select
+                    value={outstandingFilter}
+                    onChange={(e) => setOutstandingFilter(e.target.value as OutstandingFilter)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white text-sm min-w-[250px] cursor-pointer"
+                  >
+                    <option value="past">Past Events (Outstanding Due)</option>
+                    <option value="future">Future Events (Payment Pending)</option>
+                    <option value="all">All Clients</option>
+                  </select>
+                </div>
+                {top10Clients.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                    <p className="text-gray-500">
+                      {outstandingFilter === 'past' && 'No clients with past events and outstanding balance.'}
+                      {outstandingFilter === 'future' && 'No clients with future events and outstanding balance.'}
+                      {outstandingFilter === 'all' && 'No client payment records yet. Add a payment to get started.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {top10Clients.map((summary) => (
+                      <ClientSummaryCard
+                        key={summary.clientId}
+                        summary={summary}
+                        onClick={() => handleClientSelect(summary.clientId)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
         </div>
 
         {selectedClient && selectedClientSummary && (

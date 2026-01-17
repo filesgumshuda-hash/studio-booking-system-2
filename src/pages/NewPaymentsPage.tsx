@@ -169,6 +169,25 @@ export function NewPaymentsPage() {
         {isAdmin && (
           <>
             <div className="mb-8">
+              <label htmlFor="staffSelect" className="block text-sm font-medium text-gray-700 mb-2">
+                Search or Select Staff:
+              </label>
+              <select
+                id="staffSelect"
+                value={selectedStaffId || ''}
+                onChange={(e) => handleStaffSelect(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+              >
+                <option value="">-- Select a staff member --</option>
+                {activeStaff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.role.charAt(0).toUpperCase() + s.role.slice(1).replace('_', ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-8">
               <button
                 onClick={() => setShowOutstanding(!showOutstanding)}
                 className="w-full flex items-center justify-between mb-4 hover:bg-gray-50 p-2 rounded transition-colors"
@@ -196,25 +215,6 @@ export function NewPaymentsPage() {
                   )}
                 </>
               )}
-            </div>
-
-            <div className="mb-8">
-              <label htmlFor="staffSelect" className="block text-sm font-medium text-gray-700 mb-2">
-                Search or Select Staff:
-              </label>
-              <select
-                id="staffSelect"
-                value={selectedStaffId || ''}
-                onChange={(e) => handleStaffSelect(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
-              >
-                <option value="">-- Select a staff member --</option>
-                {activeStaff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.role.charAt(0).toUpperCase() + s.role.slice(1).replace('_', ' ')})
-                  </option>
-                ))}
-              </select>
             </div>
           </>
         )}
