@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { Plus, Calendar, DollarSign, Menu, X, LogOut, ClipboardList } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Menu, X, LogOut, Users } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
 import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
 import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
@@ -340,13 +340,13 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={() => {
-                  navigate('/tracking');
+                  navigate('/staff');
                   setMenuOpen(false);
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <ClipboardList size={20} />
-                <span>Event Tracking</span>
+                <Users size={20} />
+                <span>Staff</span>
               </button>
               <button
                 type="button"
