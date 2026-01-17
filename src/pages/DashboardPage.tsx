@@ -286,6 +286,7 @@ export function DashboardPage() {
 
   const { conflicts, shortages } = detectConflicts(events, staffAssignments, staff);
   const staffShortages = shortages.length;
+  const conflictsCount = conflicts.length;
 
   const pendingDataCount = useMemo(() => {
     const todayForComparison = new Date();
@@ -402,11 +403,25 @@ export function DashboardPage() {
           )}
         </div>
 
+        {/* Conflicts Alert */}
+        {conflictsCount > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate('/calendar?view=days&filter=conflicts')}
+            className="w-full flex items-center gap-3 bg-red-50 border-l-4 border-red-400 rounded px-4 py-3 mb-4 hover:bg-red-100 transition-colors text-left"
+          >
+            <span className="text-sm text-red-800 flex-1">
+              ⚠️ Double booking: {conflictsCount} conflict{conflictsCount > 1 ? 's' : ''} detected
+            </span>
+            <span className="text-sm text-blue-500">View calendar →</span>
+          </button>
+        )}
+
         {/* Staff Shortage Alert */}
         {staffShortages > 0 && (
           <button
             type="button"
-            onClick={() => navigate('/calendar')}
+            onClick={() => navigate('/calendar?view=days&filter=shortages')}
             className="w-full flex items-center gap-3 bg-yellow-50 border-l-4 border-yellow-400 rounded px-4 py-3 mb-4 hover:bg-yellow-100 transition-colors text-left"
           >
             <span className="text-sm text-yellow-800 flex-1">

@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EventDetailsModal } from '../components/calendar/EventDetailsModal';
@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 
 export function CalendarPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { events, clients, bookings, staff, staffAssignments, refreshData } = useAppData();
 
@@ -22,6 +23,19 @@ export function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'days'>('month');
   const [filterType, setFilterType] = useState<'all' | 'conflicts' | 'shortages'>('all');
+
+  // Read URL parameters on mount
+  useEffect(() => {
+    const view = searchParams.get('view');
+    const filter = searchParams.get('filter');
+
+    if (view === 'days') {
+      setViewMode('days');
+    }
+    if (filter === 'conflicts' || filter === 'shortages') {
+      setFilterType(filter);
+    }
+  }, [searchParams]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -50,18 +64,6 @@ export function CalendarPage() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const goToPreviousWeek = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(currentDate.getDate() - 7);
-    setCurrentDate(newDate);
-  };
-
-  const goToNextWeek = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(currentDate.getDate() + 7);
-    setCurrentDate(newDate);
-  };
-
   const goToToday = () => {
     setCurrentDate(new Date());
   };
@@ -75,20 +77,6 @@ export function CalendarPage() {
     const startingDayOfWeek = firstDay.getDay();
 
     return { daysInMonth, startingDayOfWeek };
-  };
-
-  const getWeekDates = (date: Date) => {
-    const dayOfWeek = date.getDay();
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - dayOfWeek);
-
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate() + i);
-      dates.push(d);
-    }
-    return dates;
   };
 
   const getDateRange = (start: Date, end: Date) => {
