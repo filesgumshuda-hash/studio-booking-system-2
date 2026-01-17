@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navigation } from './components/common/Navigation';
+import { BottomTabBar } from './components/common/BottomTabBar';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -133,9 +134,10 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppProvider>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-gray-50 overflow-x-hidden">
             <Navigation />
             <AppRoutes />
+            <BottomTabBar />
           </div>
         </AppProvider>
       </AuthProvider>

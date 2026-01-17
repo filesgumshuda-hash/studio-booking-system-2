@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { detectConflicts, formatDate } from '../utils/helpers';
-import { Plus, Calendar, DollarSign, Users, Home, Wallet, Menu, X, LogOut, ClipboardList } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Menu, X, LogOut, ClipboardList } from 'lucide-react';
 import { FinanceSummaryWidget } from '../components/dashboard/FinanceSummaryWidget';
 import { DataNotReceivedModal } from '../components/dashboard/DataNotReceivedModal';
+import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
+import { BookingForm } from '../components/bookings/BookingForm';
+import { Modal } from '../components/common/Modal';
+import { useToast } from '../components/common/Toast';
 
 function formatAmount(amount: number): string {
   if (amount >= 100000) {
@@ -60,8 +64,10 @@ export function DashboardPage() {
   } = useAppData();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [moneySheetOpen, setMoneySheetOpen] = useState(false);
   const [dataNotReceivedModalOpen, setDataNotReceivedModalOpen] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const { showToast, ToastComponent } = useToast();
 
   const today = new Date();
   const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
@@ -296,8 +302,17 @@ export function DashboardPage() {
     }).length;
   }, [staffAssignments, events]);
 
+  const handleBookingFormSuccess = () => {
+    setShowBookingForm(false);
+    showToast('Booking created successfully', 'success');
+  };
+
+  const handleBookingFormCancel = () => {
+    setShowBookingForm(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Mobile Top Bar */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b sticky top-0 z-40">
         <div>
@@ -348,117 +363,31 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Money Bottom Sheet */}
-      {moneySheetOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMoneySheetOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-xl p-4">
-            <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <button
-              type="button"
-              onClick={() => {
-                navigate('/client-payments');
-                setMoneySheetOpen(false);
-              }}
-              className="w-full text-left py-3 border-b hover:bg-gray-50 transition-colors"
-            >
-              Client Payments
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigate('/staff-payments');
-                setMoneySheetOpen(false);
-              }}
-              className="w-full text-left py-3 border-b hover:bg-gray-50 transition-colors"
-            >
-              Staff Payments
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigate('/expenses');
-                setMoneySheetOpen(false);
-              }}
-              className="w-full text-left py-3 hover:bg-gray-50 transition-colors"
-            >
-              Expenses
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 z-50 md:hidden">
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
-          className="flex flex-col items-center text-xs text-blue-600"
-        >
-          <Home size={20} />
-          <span>Home</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/calendar')}
-          className="flex flex-col items-center text-xs text-gray-600"
-        >
-          <Calendar size={20} />
-          <span>Cal</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/bookings')}
-          className="flex flex-col items-center text-xs text-gray-600"
-        >
-          <div className="bg-blue-500 text-white rounded-full p-1">
-            <Plus size={20} />
-          </div>
-          <span>New</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/staff')}
-          className="flex flex-col items-center text-xs text-gray-600"
-        >
-          <Users size={20} />
-          <span>Staff</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setMoneySheetOpen(true)}
-          className="flex flex-col items-center text-xs text-gray-600"
-        >
-          <Wallet size={20} />
-          <span>Money</span>
-        </button>
-      </nav>
-
       <div className="max-w-7xl mx-auto px-4 py-6 pb-20 lg:px-6 lg:py-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6 hidden md:block">Dashboard</h1>
 
         {/* Stats Row */}
-        <div className="text-sm text-gray-700 mb-4">
+        <div className="text-sm text-gray-700 mb-4 flex flex-wrap items-center gap-x-1">
           <button
             type="button"
             onClick={() => navigate('/tracking?filter=active')}
-            className="hover:text-blue-600 transition-colors"
+            className="hover:text-blue-600 transition-colors whitespace-nowrap"
           >
             Bookings <strong>{stats.activeBookings}</strong>
           </button>
-          {' • '}
+          <span>•</span>
           <button
             type="button"
             onClick={() => navigate('/calendar')}
-            className="hover:text-blue-600 transition-colors"
+            className="hover:text-blue-600 transition-colors whitespace-nowrap"
           >
             Events <strong>{stats.eventsThisMonth}</strong>
           </button>
-          {' • '}
+          <span>•</span>
           <button
             type="button"
             onClick={() => navigate('/tracking?filter=past')}
-            className="hover:text-blue-600 transition-colors"
+            className="hover:text-blue-600 transition-colors whitespace-nowrap"
           >
             Tasks <strong>{stats.pendingTasks}</strong>
           </button>
@@ -466,7 +395,7 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() => navigate('/client-payments')}
-              className="ml-2 text-red-500 hover:text-red-700 transition-colors"
+              className="text-red-500 hover:text-red-700 transition-colors whitespace-nowrap"
             >
               Overdue <strong>{stats.overdueBookings}</strong> ⚠️
             </button>
@@ -543,7 +472,7 @@ export function DashboardPage() {
             <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => navigate('/bookings')}
+                onClick={() => setShowBookingForm(true)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
                 <Plus size={18} className="text-gray-600" />
@@ -551,7 +480,7 @@ export function DashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/expenses')}
+                onClick={() => setShowExpenseModal(true)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
                 <DollarSign size={18} className="text-gray-600" />
@@ -597,6 +526,28 @@ export function DashboardPage() {
       {dataNotReceivedModalOpen && (
         <DataNotReceivedModal onClose={() => setDataNotReceivedModalOpen(false)} />
       )}
+
+      {/* Add Expense Modal */}
+      {showExpenseModal && (
+        <AddExpenseModal
+          onClose={() => setShowExpenseModal(false)}
+        />
+      )}
+
+      {/* New Booking Modal */}
+      <Modal
+        isOpen={showBookingForm}
+        onClose={handleBookingFormCancel}
+        title="New Booking"
+        size="full"
+      >
+        <BookingForm
+          onSuccess={handleBookingFormSuccess}
+          onCancel={handleBookingFormCancel}
+        />
+      </Modal>
+
+      {ToastComponent}
     </div>
   );
 }

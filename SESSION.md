@@ -15,6 +15,9 @@
 - Fixed "View Payment History" navigation to auto-select client
 - Unified "Agreed Payment" calculation to match across Booking Details and Client Payments page
 - Added "View Event Tracking" link to Workflow Progress section in Booking Detail modal
+- Fixed Quick Actions on Dashboard: "New Booking" now opens inline booking form, "Add Expense" opens inline expense modal
+- Fixed mobile view issues: hidden desktop navigation on mobile, prevented horizontal scroll, fixed stats row wrapping
+- Made bottom tab bar global: now appears on all pages in mobile view, not just dashboard
 
 ## Current State
 - Dashboard layout is stable and functional

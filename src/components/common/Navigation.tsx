@@ -51,7 +51,7 @@ export function Navigation() {
 
   return (
     <>
-      <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+      <nav className="hidden md:block bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export function Navigation() {
                 <p className="text-xs text-gray-500">{user.name} ({user.role})</p>
               </div>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 flex-wrap">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
