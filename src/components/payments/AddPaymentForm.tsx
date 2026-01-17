@@ -1,17 +1,19 @@
-import { useState } from 'react';
-import { Staff, Event, StaffAssignment, Booking, Client } from '../../context/AppContext';
-import { StaffSummary, formatCurrency } from '../../utils/paymentCalculations';
+import { useState, useMemo } from 'react';
+import { Staff, Event, StaffAssignment, Booking, Client, StaffPaymentRecord } from '../../context/AppContext';
+import { StaffSummary, formatCurrency, calculateStaffSummary } from '../../utils/paymentCalculations';
 import { formatEventForDropdown } from '../../utils/displayHelpers';
 import { Button } from '../common/Button';
+import { useAppData } from '../../context/AppContext';
 
 interface AddPaymentFormProps {
-  staff: Staff;
+  staff?: Staff;
+  allStaff: Staff[];
   events: Event[];
   staffAssignments: StaffAssignment[];
   bookings: Booking[];
   clients: Client[];
-  currentSummary: StaffSummary;
-  onSubmit: (data: PaymentFormData) => void;
+  currentSummary?: StaffSummary;
+  onSubmit: (data: PaymentFormData, staffId: string) => void;
   onCancel: () => void;
 }
 
@@ -26,6 +28,7 @@ export interface PaymentFormData {
 
 export function AddPaymentForm({
   staff,
+  allStaff,
   events,
   staffAssignments,
   bookings,
@@ -34,6 +37,8 @@ export function AddPaymentForm({
   onSubmit,
   onCancel,
 }: AddPaymentFormProps) {
+  const { staffPaymentRecords } = useAppData();
+  const [selectedStaffId, setSelectedStaffId] = useState<string>(staff?.id || '');
   const [formData, setFormData] = useState<PaymentFormData>({
     type: 'made',
     eventId: null,
@@ -45,9 +50,19 @@ export function AddPaymentForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const staffEventIds = staffAssignments
-    .filter((sa) => sa.staff_id === staff.id)
-    .map((sa) => sa.event_id);
+  const currentStaff = staff || allStaff.find(s => s.id === selectedStaffId);
+
+  const computedSummary = useMemo(() => {
+    if (currentSummary) return currentSummary;
+    if (!currentStaff) return null;
+    return calculateStaffSummary(currentStaff.id, currentStaff.name, staffPaymentRecords);
+  }, [currentSummary, currentStaff, staffPaymentRecords]);
+
+  const staffEventIds = currentStaff
+    ? staffAssignments
+        .filter((sa) => sa.staff_id === currentStaff.id)
+        .map((sa) => sa.event_id)
+    : [];
 
   const staffEvents = events
     .filter((e) => staffEventIds.includes(e.id))
@@ -66,6 +81,10 @@ export function AddPaymentForm({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
+
+    if (!selectedStaffId) {
+      newErrors.staff = 'Please select a staff member';
+    }
 
     if (!formData.amount || formData.amount <= 0 || formData.amount > 999999) {
       newErrors.amount = 'Amount must be between ₹1 and ₹9,99,999';
@@ -94,8 +113,8 @@ export function AddPaymentForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (validate()) {
-      onSubmit(formData);
+    if (validate() && selectedStaffId) {
+      onSubmit(formData, selectedStaffId);
     }
   };
 
@@ -108,6 +127,31 @@ export function AddPaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {!staff && (
+        <div>
+          <label htmlFor="staffSelect" className="block text-sm font-medium text-gray-700 mb-2">
+            Select Staff Member <span className="text-red-600">*</span>
+          </label>
+          <select
+            id="staffSelect"
+            value={selectedStaffId}
+            onChange={(e) => {
+              setSelectedStaffId(e.target.value);
+              setFormData({ ...formData, eventId: null });
+            }}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+          >
+            <option value="">-- Select a staff member --</option>
+            {allStaff.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.role.charAt(0).toUpperCase() + s.role.slice(1).replace('_', ' ')})
+              </option>
+            ))}
+          </select>
+          {errors.staff && <p className="mt-1 text-sm text-red-600">{errors.staff}</p>}
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Payment Type <span className="text-red-600">*</span>
@@ -229,29 +273,31 @@ export function AddPaymentForm({
         <p className="mt-1 text-xs text-gray-500">{formData.remarks.length}/200 characters</p>
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">Current Summary for this Staff:</h4>
-        <div className="flex gap-6 text-sm">
-          <div>
-            <span className="text-gray-600">Total Agreed: </span>
-            <span className="font-semibold text-gray-900">{formatCurrency(currentSummary.totalAgreed)}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Paid: </span>
-            <span className="font-semibold text-green-600">{formatCurrency(currentSummary.totalPaid)}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Due: </span>
-            <span
-              className={`font-semibold ${
-                currentSummary.totalDue > 0 ? 'text-red-600' : 'text-green-600'
-              }`}
-            >
-              {formatCurrency(currentSummary.totalDue)}
-            </span>
+      {computedSummary && (
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">Current Summary for this Staff:</h4>
+          <div className="flex gap-6 text-sm">
+            <div>
+              <span className="text-gray-600">Total Agreed: </span>
+              <span className="font-semibold text-gray-900">{formatCurrency(computedSummary.totalAgreed)}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Paid: </span>
+              <span className="font-semibold text-green-600">{formatCurrency(computedSummary.totalPaid)}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Due: </span>
+              <span
+                className={`font-semibold ${
+                  computedSummary.totalDue > 0 ? 'text-red-600' : 'text-green-600'
+                }`}
+              >
+                {formatCurrency(computedSummary.totalDue)}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-4">
         <Button type="button" onClick={onCancel} variant="secondary">

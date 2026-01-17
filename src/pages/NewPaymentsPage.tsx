@@ -85,14 +85,12 @@ export function NewPaymentsPage() {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
 
-  const handleAddPayment = async (formData: PaymentFormData) => {
-    if (!selectedStaffId) return;
-
+  const handleAddPayment = async (formData: PaymentFormData, staffId: string) => {
     try {
       const { data, error } = await supabase
         .from('staff_payment_records')
         .insert({
-          staff_id: selectedStaffId,
+          staff_id: staffId,
           type: formData.type,
           amount: formData.amount,
           payment_date: formData.paymentDate,
@@ -107,6 +105,7 @@ export function NewPaymentsPage() {
 
       dispatch({ type: 'ADD_STAFF_PAYMENT_RECORD', payload: data });
       setShowAddPaymentModal(false);
+      setSelectedStaffId(staffId);
       showToast('Payment recorded successfully', 'success');
     } catch (error: any) {
       console.error('Error adding payment:', error);
@@ -152,13 +151,7 @@ export function NewPaymentsPage() {
           <h1 className="text-3xl font-bold text-gray-900">{pageTitle}</h1>
           {isAdmin && (
             <Button
-              onClick={() => {
-                if (selectedStaffId) {
-                  setShowAddPaymentModal(true);
-                } else {
-                  showToast('Please select a staff member first', 'error');
-                }
-              }}
+              onClick={() => setShowAddPaymentModal(true)}
               className="bg-gray-900 hover:bg-gray-800"
             >
               + New Payment
@@ -241,20 +234,21 @@ export function NewPaymentsPage() {
         )}
       </div>
 
-      {showAddPaymentModal && selectedStaff && selectedStaffSummary && isAdmin && (
+      {showAddPaymentModal && isAdmin && (
         <Modal
           isOpen={showAddPaymentModal}
           onClose={() => setShowAddPaymentModal(false)}
-          title={`Add Payment for ${selectedStaff.name}`}
+          title={selectedStaff ? `Add Payment for ${selectedStaff.name}` : 'Add Staff Payment'}
           size="md"
         >
           <AddPaymentForm
-            staff={selectedStaff}
+            staff={selectedStaff || undefined}
+            allStaff={activeStaff}
             events={events}
             staffAssignments={staffAssignments}
             bookings={bookings}
             clients={clients}
-            currentSummary={selectedStaffSummary}
+            currentSummary={selectedStaffSummary || undefined}
             onSubmit={handleAddPayment}
             onCancel={() => setShowAddPaymentModal(false)}
           />

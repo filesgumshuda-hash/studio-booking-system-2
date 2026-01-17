@@ -1,14 +1,74 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Calendar, Plus, Wallet, Clipboard } from 'lucide-react';
 import { useState } from 'react';
+import { Modal } from './Modal';
+import { BookingForm } from '../bookings/BookingForm';
+import { AddPaymentForm, PaymentFormData } from '../payments/AddPaymentForm';
+import { AddExpenseModal } from '../expenses/AddExpenseModal';
+import { useAppData } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from './Toast';
+import { supabase } from '../../lib/supabase';
 
 export function BottomTabBar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { staff, events, staffAssignments, bookings, clients, dispatch, refreshData } = useAppData();
+  const { showToast } = useToast();
+
   const [moneySheetOpen, setMoneySheetOpen] = useState(false);
   const [newSheetOpen, setNewSheetOpen] = useState(false);
 
+  // Modal states
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+
   const isActive = (path: string) => location.pathname === path;
+  const isAdmin = user?.role === 'admin';
+
+  // Booking handlers
+  const handleBookingSuccess = () => {
+    setShowBookingModal(false);
+    showToast('Booking created successfully', 'success');
+    refreshData();
+  };
+
+  const handleBookingCancel = () => {
+    setShowBookingModal(false);
+  };
+
+  // Staff payment handlers
+  const handleAddStaffPayment = async (formData: PaymentFormData, staffId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('staff_payment_records')
+        .insert({
+          staff_id: staffId,
+          type: formData.type,
+          amount: formData.amount,
+          payment_date: formData.paymentDate,
+          payment_method: formData.type === 'made' ? formData.paymentMethod : null,
+          remarks: formData.remarks || null,
+          event_id: formData.eventId || null,
+        })
+        .select('*, staff:staff(*), event:events(*)')
+        .single();
+
+      if (error) throw error;
+
+      dispatch({ type: 'ADD_STAFF_PAYMENT_RECORD', payload: data });
+      setShowStaffPaymentModal(false);
+      showToast('Payment recorded successfully', 'success');
+    } catch (error: any) {
+      console.error('Error adding payment:', error);
+      showToast(error.message || 'Failed to add payment', 'error');
+    }
+  };
+
+
+  const activeStaff = staff.filter((s) => s.status === 'active').sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <>
@@ -73,7 +133,7 @@ export function BottomTabBar() {
             <button
               type="button"
               onClick={() => {
-                navigate('/bookings');
+                setShowBookingModal(true);
                 setNewSheetOpen(false);
               }}
               className="w-full text-left py-3 border-b hover:bg-gray-50 transition-colors"
@@ -83,7 +143,22 @@ export function BottomTabBar() {
             <button
               type="button"
               onClick={() => {
-                navigate('/expenses');
+                if (isAdmin) {
+                  setShowStaffPaymentModal(true);
+                  setNewSheetOpen(false);
+                } else {
+                  showToast('Only admins can add staff payments', 'error');
+                  setNewSheetOpen(false);
+                }
+              }}
+              className="w-full text-left py-3 border-b hover:bg-gray-50 transition-colors"
+            >
+              New Staff Payment
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowExpenseModal(true);
                 setNewSheetOpen(false);
               }}
               className="w-full text-left py-3 hover:bg-gray-50 transition-colors"
@@ -132,6 +207,48 @@ export function BottomTabBar() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Booking Modal */}
+      {showBookingModal && (
+        <Modal
+          isOpen={showBookingModal}
+          onClose={handleBookingCancel}
+          title="New Booking"
+          size="full"
+        >
+          <BookingForm
+            onSuccess={handleBookingSuccess}
+            onCancel={handleBookingCancel}
+          />
+        </Modal>
+      )}
+
+      {/* Staff Payment Modal */}
+      {showStaffPaymentModal && isAdmin && (
+        <Modal
+          isOpen={showStaffPaymentModal}
+          onClose={() => setShowStaffPaymentModal(false)}
+          title="Add Staff Payment"
+          size="md"
+        >
+          <AddPaymentForm
+            allStaff={activeStaff}
+            events={events}
+            staffAssignments={staffAssignments}
+            bookings={bookings}
+            clients={clients}
+            onSubmit={handleAddStaffPayment}
+            onCancel={() => setShowStaffPaymentModal(false)}
+          />
+        </Modal>
+      )}
+
+      {/* Expense Modal */}
+      {showExpenseModal && (
+        <AddExpenseModal
+          onClose={() => setShowExpenseModal(false)}
+        />
       )}
     </>
   );
