@@ -35,6 +35,8 @@ export function StaffDetailSection({
 }: StaffDetailSectionProps) {
   const [editedAmounts, setEditedAmounts] = useState<Record<string, EditedAmount>>({});
   const [isSavingAll, setIsSavingAll] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState<'history' | 'agreed' | 'all'>('history');
+  const [eventFilter, setEventFilter] = useState<'nonzero' | 'all'>('nonzero');
 
   const getPaymentMethodLabel = (method?: string): string => {
     if (!method) return '-';
@@ -237,9 +239,42 @@ export function StaffDetailSection({
       </div>
 
       <div>
-        <h3 className="text-base font-semibold text-gray-900 mb-3">Event-wise Breakdown:</h3>
-        {eventAmounts.length === 0 ? (
-          <p className="text-gray-500 text-sm py-4">No events assigned yet.</p>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-900">Event-wise Breakdown:</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEventFilter('nonzero')}
+              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                eventFilter === 'nonzero'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              With Amount
+            </button>
+            <button
+              onClick={() => setEventFilter('all')}
+              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                eventFilter === 'all'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              All Events
+            </button>
+          </div>
+        </div>
+        {eventAmounts.filter((ea) => {
+          if (eventFilter === 'nonzero') {
+            const edited = editedAmounts[ea.eventId];
+            const currentAmount = edited?.amount !== undefined ? parseFloat(edited.amount) || 0 : ea.amount;
+            return currentAmount > 0;
+          }
+          return true;
+        }).length === 0 ? (
+          <p className="text-gray-500 text-sm py-4">
+            {eventFilter === 'nonzero' ? 'No events with agreed amount yet.' : 'No events assigned yet.'}
+          </p>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -258,7 +293,16 @@ export function StaffDetailSection({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {eventAmounts.map((ea) => {
+                  {eventAmounts
+                    .filter((ea) => {
+                      if (eventFilter === 'nonzero') {
+                        const edited = editedAmounts[ea.eventId];
+                        const currentAmount = edited?.amount !== undefined ? parseFloat(edited.amount) || 0 : ea.amount;
+                        return currentAmount > 0;
+                      }
+                      return true;
+                    })
+                    .map((ea) => {
                     const edited = editedAmounts[ea.eventId];
                     const changed = hasChanged(ea.eventId, ea.amount);
 
@@ -319,10 +363,50 @@ export function StaffDetailSection({
       </div>
 
       <div>
-        <h3 className="text-base font-semibold text-gray-900 mb-3">Payment History:</h3>
-        {paymentHistory.filter((p) => p.type === 'made').length === 0 ? (
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-900">Payment History:</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPaymentFilter('history')}
+              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                paymentFilter === 'history'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              History
+            </button>
+            <button
+              onClick={() => setPaymentFilter('agreed')}
+              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                paymentFilter === 'agreed'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Agreed
+            </button>
+            <button
+              onClick={() => setPaymentFilter('all')}
+              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                paymentFilter === 'all'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              All
+            </button>
+          </div>
+        </div>
+        {paymentHistory.filter((payment) => {
+          if (paymentFilter === 'history') return payment.type === 'made';
+          if (paymentFilter === 'agreed') return payment.type === 'agreed';
+          return true;
+        }).length === 0 ? (
           <p className="text-gray-500 text-sm py-4">
-            No payments yet. Click &apos;+ Add Payment&apos; to record one.
+            {paymentFilter === 'history' && 'No payment history yet. Click \'+ Add Payment\' to record one.'}
+            {paymentFilter === 'agreed' && 'No agreed payments yet.'}
+            {paymentFilter === 'all' && 'No payment records yet.'}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -341,35 +425,49 @@ export function StaffDetailSection({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paymentHistory
-                  .filter((p) => p.type === 'made')
+                  .filter((payment) => {
+                    if (paymentFilter === 'history') return payment.type === 'made';
+                    if (paymentFilter === 'agreed') return payment.type === 'agreed';
+                    return true;
+                  })
                   .map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatDate(payment.payment_date)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                          Made
-                        </span>
+                  <tr key={payment.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatDate(payment.payment_date)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                          payment.type === 'made'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {payment.type === 'made' ? 'Made' : 'Agreed'}
+                      </span>
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-sm font-semibold ${
+                        payment.type === 'made' ? 'text-green-600' : 'text-gray-600'
+                      }`}
+                    >
+                      {formatCurrency(Number(payment.amount))}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {getPaymentMethodLabel(payment.payment_method)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{payment.remarks || '-'}</td>
+                    {onDeletePayment && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => onDeletePayment(payment.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete payment"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-green-600">
-                        {formatCurrency(Number(payment.amount))}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {getPaymentMethodLabel(payment.payment_method)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{payment.remarks || '-'}</td>
-                      {onDeletePayment && (
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => onDeletePayment(payment.id)}
-                            className="text-gray-400 hover:text-red-600 transition-colors"
-                            title="Delete payment"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
+                    )}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
