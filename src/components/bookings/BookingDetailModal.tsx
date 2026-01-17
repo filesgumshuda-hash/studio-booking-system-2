@@ -113,9 +113,9 @@ export function BookingDetailModal({ booking, onClose, onEdit }: BookingDetailMo
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Package Amount:</span>
+                <span className="text-gray-600">Agreed Payment:</span>
                 <span className="ml-2 font-medium">
-                  {booking.package_amount ? `₹${booking.package_amount.toLocaleString('en-IN')}` : 'Not set'}
+                  {paymentStatus.agreed > 0 ? `₹${paymentStatus.agreed.toLocaleString('en-IN')}` : 'Not set'}
                 </span>
               </div>
             </div>
@@ -201,9 +201,12 @@ export function BookingDetailModal({ booking, onClose, onEdit }: BookingDetailMo
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Package Amount:</span>
+                <span className="text-gray-600">Agreed Payment:</span>
                 <span className="font-semibold">
-                  ₹{paymentStatus.packageAmount.toLocaleString('en-IN')}
+                  {paymentStatus.agreed > 0
+                    ? `₹${paymentStatus.agreed.toLocaleString('en-IN')}`
+                    : <span className="text-gray-400">Not set</span>
+                  }
                 </span>
               </div>
               <div className="flex justify-between">
@@ -214,16 +217,24 @@ export function BookingDetailModal({ booking, onClose, onEdit }: BookingDetailMo
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Outstanding:</span>
-                <span className={`font-semibold ${paymentStatus.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  ₹{paymentStatus.outstanding.toLocaleString('en-IN')}
-                  {paymentStatus.outstanding > 0 ? ' ⚠️' : ' ✓'}
+                <span className={`font-semibold ${
+                  paymentStatus.agreed === 0
+                    ? 'text-gray-400'
+                    : paymentStatus.outstanding > 0
+                      ? 'text-red-600'
+                      : 'text-green-600'
+                }`}>
+                  {paymentStatus.agreed === 0
+                    ? 'N/A'
+                    : `₹${Math.abs(paymentStatus.outstanding).toLocaleString('en-IN')}${paymentStatus.outstanding > 0 ? ' ⚠️' : ' ✓'}`
+                  }
                 </span>
               </div>
             </div>
             <button
               onClick={() => {
                 onClose();
-                navigate('/client-payments');
+                navigate('/client-payments', { state: { selectedClientId: booking.client_id } });
               }}
               className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
@@ -242,6 +253,15 @@ export function BookingDetailModal({ booking, onClose, onEdit }: BookingDetailMo
               <ProgressBar label="Video" completed={progress.video.completed} total={progress.video.total} />
               <ProgressBar label="Portrait" completed={progress.portrait.completed} total={progress.portrait.total} />
             </div>
+            <button
+              onClick={() => {
+                onClose();
+                navigate(`/tracking/${booking.id}`);
+              }}
+              className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              View Event Tracking →
+            </button>
           </section>
 
           {/* Booking Notes */}
@@ -316,13 +336,15 @@ function ProgressBar({ label, completed, total }: { label: string; completed: nu
 }
 
 function calculatePaymentStatus(booking: Booking, clientPaymentRecords: any[]) {
-  const packageAmount = booking.package_amount || 0;
+  const agreed = clientPaymentRecords
+    .filter(p => p.booking_id === booking.id && p.payment_status === 'agreed')
+    .reduce((sum, p) => sum + p.amount, 0);
   const received = clientPaymentRecords
     .filter(p => p.booking_id === booking.id && p.payment_status === 'received')
     .reduce((sum, p) => sum + p.amount, 0);
-  const outstanding = packageAmount - received;
+  const outstanding = agreed - received;
 
-  return { packageAmount, received, outstanding };
+  return { agreed, received, outstanding };
 }
 
 function calculateBookingProgress(workflows: any[]) {

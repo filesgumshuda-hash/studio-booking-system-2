@@ -106,27 +106,44 @@ export function StaffDetailSection({
     }));
 
     try {
-      const { data: existingPayment } = await supabase
+      // Get ALL existing payment records for this staff+event+type combination
+      const { data: existingPayments } = await supabase
         .from('staff_payment_records')
         .select('id, amount')
         .eq('staff_id', staff.id)
         .eq('event_id', eventAmount.eventId)
-        .eq('type', 'agreed')
-        .maybeSingle();
+        .eq('type', 'agreed');
 
       if (newAmount === 0) {
-        if (existingPayment) {
+        // Delete all existing records if setting amount to 0
+        if (existingPayments && existingPayments.length > 0) {
           await supabase
             .from('staff_payment_records')
             .delete()
-            .eq('id', existingPayment.id);
+            .eq('staff_id', staff.id)
+            .eq('event_id', eventAmount.eventId)
+            .eq('type', 'agreed');
         }
-      } else if (existingPayment) {
+      } else if (existingPayments && existingPayments.length > 0) {
+        // Update the first record and delete any duplicates
+        const [firstRecord, ...duplicates] = existingPayments;
+
         await supabase
           .from('staff_payment_records')
           .update({ amount: newAmount })
-          .eq('id', existingPayment.id);
+          .eq('id', firstRecord.id);
+
+        // Delete any duplicate records
+        if (duplicates.length > 0) {
+          for (const duplicate of duplicates) {
+            await supabase
+              .from('staff_payment_records')
+              .delete()
+              .eq('id', duplicate.id);
+          }
+        }
       } else {
+        // No existing record, create a new one
         await supabase
           .from('staff_payment_records')
           .insert({

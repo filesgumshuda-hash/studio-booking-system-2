@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAppData, ClientPaymentRecord } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { Modal } from '../components/common/Modal';
@@ -22,9 +23,21 @@ import {
 } from '../utils/clientPaymentCalculations';
 
 export function ClientPaymentsPage() {
+  const location = useLocation();
   const { clients, bookings, events, clientPaymentRecords, expenses, staffPaymentRecords, staff, dispatch } = useAppData();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [outstandingFilter, setOutstandingFilter] = useState<OutstandingFilter>('past');
+
+  // Auto-select client if navigated from booking detail
+  useEffect(() => {
+    if (location.state?.selectedClientId) {
+      setSelectedClientId(location.state.selectedClientId);
+      // Scroll to client detail section
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location.state]);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showStaffPaymentModal, setShowStaffPaymentModal] = useState(false);

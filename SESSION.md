@@ -10,12 +10,19 @@
 - Restored Client Payments, Staff Payments, and Expenses cards
 - Normalized typography across dashboard
 - Fixed Payment Management page crash when saving payment updates
+- Fixed payment amounts accumulating instead of updating (duplicate records issue)
+- Fixed Payment Status display in Booking Detail modal
+- Fixed "View Payment History" navigation to auto-select client
+- Unified "Agreed Payment" calculation to match across Booking Details and Client Payments page
+- Added "View Event Tracking" link to Workflow Progress section in Booking Detail modal
 
 ## Current State
 - Dashboard layout is stable and functional
 - KPI row and profit emphasis are correct
 - Finance summary is now secondary context
-- Payment Management page is stable (crash on save fixed)
+- Payment Management page is stable (crash fixed, duplicate records handled properly)
+- Booking Detail modal Payment Status displays correctly with proper navigation
+- Agreed Payment amounts now consistent across all views (calculated from payment records)
 
 ## Open Issues / Next Steps
 - Fine-tune spacing and font sizes in KPI row
@@ -24,5 +31,6 @@
 
 ## Notes
 - UI-only changes for dashboard
-- Payment Management bug fix involved proper state management
-- No backend/database logic modified
+- Payment Management bug fixes involved proper state management and data integrity
+- Database queries updated to handle duplicate records properly
+- No database schema changes
