@@ -12,6 +12,7 @@ interface StaffDetailSectionProps {
   paymentHistory: StaffPaymentRecord[];
   onAddPayment?: () => void;
   onDeletePayment?: (paymentId: string) => void;
+  onPaymentUpdated?: () => Promise<void>;
   isReadOnly?: boolean;
 }
 
@@ -29,6 +30,7 @@ export function StaffDetailSection({
   paymentHistory,
   onAddPayment,
   onDeletePayment,
+  onPaymentUpdated,
   isReadOnly,
 }: StaffDetailSectionProps) {
   const [editedAmounts, setEditedAmounts] = useState<Record<string, EditedAmount>>({});
@@ -141,13 +143,18 @@ export function StaffDetailSection({
         [eventAmount.eventId]: { ...prev[eventAmount.eventId], isSaving: false, justSaved: true },
       }));
 
+      // Refresh data from parent
+      if (onPaymentUpdated) {
+        await onPaymentUpdated();
+      }
+
+      // Clear the saved indicator after a delay
       setTimeout(() => {
         setEditedAmounts((prev) => {
           const updated = { ...prev };
           delete updated[eventAmount.eventId];
           return updated;
         });
-        window.location.reload();
       }, 2000);
     } catch (error) {
       console.error('Error saving payment:', error);

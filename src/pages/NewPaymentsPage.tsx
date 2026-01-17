@@ -21,7 +21,7 @@ import { getAccessiblePayments, canManagePayments } from '../utils/accessControl
 
 export function NewPaymentsPage() {
   const { user } = useAuth();
-  const { staff, events, staffAssignments, staffPaymentRecords, bookings, clients, dispatch } = useAppData();
+  const { staff, events, staffAssignments, staffPaymentRecords, bookings, clients, dispatch, refreshData } = useAppData();
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -215,6 +215,7 @@ export function NewPaymentsPage() {
             paymentHistory={selectedStaffPaymentHistory}
             onAddPayment={isAdmin ? () => setShowAddPaymentModal(true) : undefined}
             onDeletePayment={isAdmin ? handleDeletePayment : undefined}
+            onPaymentUpdated={refreshData}
             isReadOnly={isStaffOrManager}
           />
         )}
