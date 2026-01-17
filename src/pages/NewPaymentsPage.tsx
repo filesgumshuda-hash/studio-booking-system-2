@@ -24,6 +24,7 @@ export function NewPaymentsPage() {
   const { staff, events, staffAssignments, staffPaymentRecords, bookings, clients, dispatch, refreshData } = useAppData();
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [showOutstanding, setShowOutstanding] = useState(true);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     paymentId: string;
@@ -168,21 +169,32 @@ export function NewPaymentsPage() {
         {isAdmin && (
           <>
             <div className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Staff by Outstanding Balance</h2>
-              {top10Staff.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <p className="text-gray-500">No payment records yet. Add a payment to get started.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {top10Staff.map((summary) => (
-                    <StaffSummaryCard
-                      key={summary.staffId}
-                      summary={summary}
-                      onClick={() => handleStaffSelect(summary.staffId)}
-                    />
-                  ))}
-                </div>
+              <button
+                onClick={() => setShowOutstanding(!showOutstanding)}
+                className="w-full flex items-center justify-between mb-4 hover:bg-gray-50 p-2 rounded transition-colors"
+              >
+                <h2 className="text-lg font-semibold text-gray-900">Top 10 Staff by Outstanding Balance</h2>
+                <span className="text-gray-500 text-xl">{showOutstanding ? '−' : '+'}</span>
+              </button>
+
+              {showOutstanding && (
+                <>
+                  {top10Staff.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                      <p className="text-gray-500">No payment records yet. Add a payment to get started.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                      {top10Staff.map((summary) => (
+                        <StaffSummaryCard
+                          key={summary.staffId}
+                          summary={summary}
+                          onClick={() => handleStaffSelect(summary.staffId)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
