@@ -503,7 +503,7 @@ export function DashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/calendar')}
+                onClick={() => navigate('/calendar?view=days')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
               >
                 <Calendar size={18} className="text-gray-600" />

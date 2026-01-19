@@ -21,7 +21,10 @@ export function CalendarPage() {
     return getAccessibleEvents(user, events);
   }, [user, events]);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'days'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'days'>(() => {
+    // Default to 'days' on mobile, 'month' on desktop
+    return window.innerWidth < 768 ? 'days' : 'month';
+  });
   const [filterType, setFilterType] = useState<'all' | 'conflicts' | 'shortages'>('all');
 
   // Read URL parameters on mount
@@ -29,8 +32,8 @@ export function CalendarPage() {
     const view = searchParams.get('view');
     const filter = searchParams.get('filter');
 
-    if (view === 'days') {
-      setViewMode('days');
+    if (view === 'days' || view === 'month') {
+      setViewMode(view);
     }
     if (filter === 'conflicts' || filter === 'shortages') {
       setFilterType(filter);
