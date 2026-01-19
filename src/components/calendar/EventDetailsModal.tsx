@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Clock, MapPin, Users, Calendar, ExternalLink } from 'lucide-react';
 import { Event, Booking, Client, StaffAssignment, Staff } from '../../context/AppContext';
 import { StatusBadge } from '../common/StatusBadge';
@@ -14,7 +14,8 @@ interface EventDetailsModalProps {
   staff: Staff[];
   events: Event[];
   onViewBooking?: () => void;
-  onAssignStaff?: (eventId: string, staffId: string) => void;
+  onAssignStaff?: (eventId: string, staffId: string) => Promise<void>;
+  onUnassignStaff?: (assignmentId: string) => Promise<void>;
 }
 
 export function EventDetailsModal({
@@ -28,7 +29,14 @@ export function EventDetailsModal({
   events,
   onViewBooking,
   onAssignStaff,
+  onUnassignStaff,
 }: EventDetailsModalProps) {
+  const [photographerSelect, setPhotographerSelect] = useState('');
+  const [videographerSelect, setVideographerSelect] = useState('');
+  const [droneSelect, setDroneSelect] = useState('');
+  const [editorSelect, setEditorSelect] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
   if (!isOpen || !event) return null;
 
   const assignedStaff = staffAssignments
@@ -121,16 +129,31 @@ export function EventDetailsModal({
 
               <div className="flex items-start gap-2 text-gray-700">
                 <Users size={18} className="text-gray-500 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <div className="font-medium mb-1">Staff Booked:</div>
                   {assignedStaff.length > 0 ? (
                     <div className="space-y-1">
                       {assignedStaff.map((sa) => (
-                        <div key={sa.id} className="flex items-center gap-2">
-                          <span className="text-sm">• {sa.staff?.name || 'Unknown'}</span>
-                          <span className="text-xs text-gray-500 capitalize">
-                            {(sa.staff?.role || sa.role).replace('_', ' ')}
-                          </span>
+                        <div key={sa.id} className="flex items-center justify-between gap-2 bg-gray-50 rounded px-2 py-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">• {sa.staff?.name || 'Unknown'}</span>
+                            <span className="text-xs text-gray-500 capitalize">
+                              ({(sa.staff?.role || sa.role).replace('_', ' ')})
+                            </span>
+                          </div>
+                          {onUnassignStaff && (
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Remove ${sa.staff?.name || 'this staff member'}?`)) {
+                                  await onUnassignStaff(sa.id);
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded p-1 transition-colors"
+                              title="Remove staff"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -160,17 +183,30 @@ export function EventDetailsModal({
                         +{photographerShortage} Photographer{photographerShortage > 1 ? 's' : ''}
                       </span>
                       <select
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            onAssignStaff?.(event.id, e.target.value);
-                            e.target.value = '';
+                        className="text-sm border border-gray-300 rounded px-2 py-1 disabled:opacity-50"
+                        value={photographerSelect}
+                        disabled={isAssigning}
+                        onChange={async (e) => {
+                          const value = e.target.value;
+                          console.log('Photographer selected:', value);
+                          if (value) {
+                            setIsAssigning(true);
+                            setPhotographerSelect(value);
+                            console.log('Calling onAssignStaff with event.id:', event.id, 'staffId:', value);
+                            try {
+                              await onAssignStaff?.(event.id, value);
+                              console.log('onAssignStaff completed successfully');
+                            } catch (error) {
+                              console.error('Error in onAssignStaff:', error);
+                            } finally {
+                              setPhotographerSelect('');
+                              setIsAssigning(false);
+                            }
                           }
                         }}
                       >
                         <option value="" disabled>
-                          Assign ▼
+                          {isAssigning ? 'Assigning...' : 'Assign ▼'}
                         </option>
                         {availablePhotographers.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -190,17 +226,29 @@ export function EventDetailsModal({
                         +{videographerShortage} Videographer{videographerShortage > 1 ? 's' : ''}
                       </span>
                       <select
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            onAssignStaff?.(event.id, e.target.value);
-                            e.target.value = '';
+                        className="text-sm border border-gray-300 rounded px-2 py-1 disabled:opacity-50"
+                        value={videographerSelect}
+                        disabled={isAssigning}
+                        onChange={async (e) => {
+                          const value = e.target.value;
+                          console.log('Videographer selected:', value);
+                          if (value) {
+                            setIsAssigning(true);
+                            setVideographerSelect(value);
+                            try {
+                              await onAssignStaff?.(event.id, value);
+                              console.log('Videographer assigned successfully');
+                            } catch (error) {
+                              console.error('Error assigning videographer:', error);
+                            } finally {
+                              setVideographerSelect('');
+                              setIsAssigning(false);
+                            }
                           }
                         }}
                       >
                         <option value="" disabled>
-                          Assign ▼
+                          {isAssigning ? 'Assigning...' : 'Assign ▼'}
                         </option>
                         {availableVideographers.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -220,17 +268,29 @@ export function EventDetailsModal({
                         +{droneShortage} Drone Operator{droneShortage > 1 ? 's' : ''}
                       </span>
                       <select
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            onAssignStaff?.(event.id, e.target.value);
-                            e.target.value = '';
+                        className="text-sm border border-gray-300 rounded px-2 py-1 disabled:opacity-50"
+                        value={droneSelect}
+                        disabled={isAssigning}
+                        onChange={async (e) => {
+                          const value = e.target.value;
+                          console.log('Drone operator selected:', value);
+                          if (value) {
+                            setIsAssigning(true);
+                            setDroneSelect(value);
+                            try {
+                              await onAssignStaff?.(event.id, value);
+                              console.log('Drone operator assigned successfully');
+                            } catch (error) {
+                              console.error('Error assigning drone operator:', error);
+                            } finally {
+                              setDroneSelect('');
+                              setIsAssigning(false);
+                            }
                           }
                         }}
                       >
                         <option value="" disabled>
-                          Assign ▼
+                          {isAssigning ? 'Assigning...' : 'Assign ▼'}
                         </option>
                         {availableDroneOps.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -250,17 +310,29 @@ export function EventDetailsModal({
                         +{editorShortage} Editor{editorShortage > 1 ? 's' : ''}
                       </span>
                       <select
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            onAssignStaff?.(event.id, e.target.value);
-                            e.target.value = '';
+                        className="text-sm border border-gray-300 rounded px-2 py-1 disabled:opacity-50"
+                        value={editorSelect}
+                        disabled={isAssigning}
+                        onChange={async (e) => {
+                          const value = e.target.value;
+                          console.log('Editor selected:', value);
+                          if (value) {
+                            setIsAssigning(true);
+                            setEditorSelect(value);
+                            try {
+                              await onAssignStaff?.(event.id, value);
+                              console.log('Editor assigned successfully');
+                            } catch (error) {
+                              console.error('Error assigning editor:', error);
+                            } finally {
+                              setEditorSelect('');
+                              setIsAssigning(false);
+                            }
                           }
                         }}
                       >
                         <option value="" disabled>
-                          Assign ▼
+                          {isAssigning ? 'Assigning...' : 'Assign ▼'}
                         </option>
                         {availableEditors.map((s) => (
                           <option key={s.id} value={s.id}>

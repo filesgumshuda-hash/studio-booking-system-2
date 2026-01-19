@@ -272,15 +272,67 @@ export function CalendarPage() {
   };
 
   const handleAssignStaff = async (eventId: string, staffId: string) => {
-    if (!staffId) return;
+    console.log('=== handleAssignStaff called ===');
+    console.log('eventId:', eventId);
+    console.log('staffId:', staffId);
+
+    if (!staffId) {
+      console.log('No staffId provided, returning early');
+      return;
+    }
+
     try {
-      await supabase.from('staff_assignments').insert({
+      // Find the staff member to get their role
+      const staffMember = staff.find(s => s.id === staffId);
+      if (!staffMember) {
+        console.error('Staff member not found');
+        alert('Staff member not found');
+        return;
+      }
+
+      console.log('Staff member found:', staffMember.name, 'Role:', staffMember.role);
+      console.log('Attempting to insert staff assignment...');
+
+      const { data, error } = await supabase.from('staff_assignments').insert({
         event_id: eventId,
         staff_id: staffId,
+        role: staffMember.role,
       });
+
+      if (error) {
+        console.error('Supabase returned error:', error);
+        alert(`Failed to assign staff: ${error.message}`);
+        return;
+      }
+
+      console.log('Staff assigned successfully! Data:', data);
+      console.log('Calling refreshData...');
+      await refreshData();
+      console.log('refreshData completed');
+    } catch (error) {
+      console.error('Exception caught in handleAssignStaff:', error);
+      alert('Failed to assign staff. Please try again.');
+    }
+  };
+
+  const handleUnassignStaff = async (assignmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('staff_assignments')
+        .delete()
+        .eq('id', assignmentId);
+
+      if (error) {
+        console.error('Failed to unassign staff:', error);
+        alert(`Failed to remove staff: ${error.message}`);
+        return;
+      }
+
+      console.log('Staff unassigned successfully');
       await refreshData();
     } catch (error) {
-      console.error('Failed to assign staff:', error);
+      console.error('Failed to unassign staff:', error);
+      alert('Failed to remove staff. Please try again.');
     }
   };
 
@@ -682,6 +734,7 @@ export function CalendarPage() {
         events={events}
         onViewBooking={handleViewBooking}
         onAssignStaff={handleAssignStaff}
+        onUnassignStaff={handleUnassignStaff}
       />
     </div>
   );

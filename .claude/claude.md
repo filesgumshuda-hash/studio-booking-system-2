@@ -1,4 +1,4 @@
-# Cloud Code Instructions (cloud.md)
+# Claude Code Instructions (CLAUDE.md)
 
 ## Project Overview
 This is a **Photo Studio Management Web App** used by studio owners to manage:
@@ -121,7 +121,7 @@ After making changes:
 
 Behavioral Rules for Future Sessions
 
-Always read cloud.md, SESSION.md, and ERRORS.md before making changes
+Always read CLAUDE.md, SESSION.md, and ERRORS.md before making changes
 
 Keep session updates short and factual
 
